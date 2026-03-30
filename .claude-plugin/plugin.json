@@ -1,7 +1,7 @@
 {
   "name": "hello2cc",
-  "version": "0.0.1",
-  "description": "Native-first Claude Code plugin that keeps third-party models on Claude Code's built-in Agent, TeamCreate, Task, ToolSearch, verification, and output-style workflows.",
+  "version": "0.0.2",
+  "description": "Skill-free, native-first Claude Code plugin that keeps third-party models on Claude Code's built-in Agent, TeamCreate, Task, ToolSearch, verification, and output-style workflows.",
   "author": {
     "name": "hello2cc"
   },
@@ -17,7 +17,6 @@
     "gpt",
     "llm"
   ],
-  "skills": "./skills",
   "outputStyles": "./output-styles",
   "userConfig": {
     "routing_policy": {

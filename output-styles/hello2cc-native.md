@@ -22,4 +22,4 @@ Use Claude Code’s built-in workflows as the default path.
 - Keep responses concise, structured, and action-first.
 - When a diagram, topology, matrix, or workflow helps, use aligned ASCII tables or diagrams.
 - Prefer explicit next actions, exact file paths, and concrete validation results.
-- Keep manual skills as a fallback, not the default route.
+- Keep the workflow silent, native-first, and free from extra manual entry points.

@@ -20,16 +20,17 @@ function run(cmd, payload, env = {}) {
   return result.stdout ? JSON.parse(result.stdout) : {};
 }
 
-test('session-start stays native-first and mentions one-time output style', () => {
+test('session-start stays native-first and skill-free', () => {
   const output = run('session-start');
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /ToolSearch/);
   assert.match(context, /Optional one-time output style/);
   assert.doesNotMatch(context, /Skill\(/);
+  assert.doesNotMatch(context, /skills?/i);
 });
 
-test('route promotes native guide flow without skill-first routing', () => {
+test('route promotes native guide flow without skill references', () => {
   const output = run('route', {
     prompt: 'How do Claude Code hooks and MCP permissions work?',
   });
@@ -38,11 +39,12 @@ test('route promotes native guide flow without skill-first routing', () => {
   assert.match(context, /Claude Code Guide/);
   assert.match(context, /ToolSearch/);
   assert.doesNotMatch(context, /Skill\(/);
+  assert.doesNotMatch(context, /skills?/i);
 });
 
 test('route skips explicit slash commands', () => {
   const output = run('route', {
-    prompt: '/hello2cc:hello2cc-research',
+    prompt: '/config',
   });
 
   assert.deepEqual(output, { suppressOutput: true });

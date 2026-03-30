@@ -73,11 +73,11 @@ function buildSessionStartContext() {
     '# hello2cc',
     '',
     'hello2cc is a thin, native-first Claude Code plugin for GPT and other third-party models routed through Claude Code.',
-    'Its job is to preserve Claude Code’s built-in workflows instead of replacing them with skill-heavy orchestration.',
+    'Its job is to preserve Claude Code’s built-in workflows with silent model injection and persistent response shaping.',
     '',
     '## Default posture',
     '- Trivial, low-risk edits: do them directly.',
-    '- If you are unsure whether a tool, skill, plugin, agent type, permission, or MCP capability exists, run `ToolSearch` before guessing.',
+    '- If you are unsure whether a tool, plugin, agent type, permission, or MCP capability exists, run `ToolSearch` before guessing.',
     '- For Claude Code / Claude API / Agent SDK / hooks / MCP / settings questions, prefer native `Claude Code Guide` first and use official docs when needed.',
     '- For multi-step or cross-file work, prefer `EnterPlanMode()` or at least `TaskCreate` / `TaskUpdate` / `TaskList`.',
     '- For open-ended repository exploration after a couple of searches, prefer native `Agent` with `Explore` or `Plan`.',
@@ -95,8 +95,6 @@ function buildSessionStartContext() {
     '## Optional one-time output style',
     '- If the user selects `hello2cc Native` once in `/config`, keep following that formatting and native-first behavior silently in new sessions.',
     '',
-    '## Optional manual escape hatches',
-    '- Slash skills remain available, but they are fallback entry points rather than the default path.',
     ...buildModelPolicyLines(config),
   ].join('\n');
 }
@@ -113,7 +111,7 @@ function buildRouteSteps(prompt) {
   if (signals.claudeGuide) {
     steps.push('这是 Claude Code / Claude API / Agent SDK / hooks / settings / MCP 能力问题：优先调用原生 `Agent` 的 `Claude Code Guide`，必要时再抓取官方文档。');
   } else if (signals.research) {
-    steps.push('这是研究 / 对比 / 文档任务：先定向搜索，再在需要时转原生 `Explore` 或 `Plan`，不要默认走 skill。');
+    steps.push('这是研究 / 对比 / 文档任务：先定向搜索，再在需要时转原生 `Explore` 或 `Plan`。');
   }
 
   if (signals.complex) {
@@ -150,8 +148,6 @@ function buildRouteSteps(prompt) {
     '按下面顺序优先决策：',
     '',
     ...steps.map((step, index) => `${index + 1}. ${step}`),
-    '',
-    'skills 只是手动备用入口，不是默认首选路径。',
   ].join('\n');
 }
 

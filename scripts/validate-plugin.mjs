@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.argv[2] || process.cwd();
@@ -48,25 +48,6 @@ function parseFrontmatter(text) {
   return text.slice(4, end);
 }
 
-function validateSkillDirectory(dirName) {
-  const skillPath = join(root, 'skills', dirName, 'SKILL.md');
-  if (!existsSync(skillPath)) {
-    fail(`missing skills/${dirName}/SKILL.md`);
-    return;
-  }
-
-  const text = readFileSync(skillPath, 'utf8');
-  const frontmatter = parseFrontmatter(text);
-  if (!frontmatter) {
-    fail(`invalid frontmatter in ${skillPath}`);
-    return;
-  }
-
-  if (!/^name:\s*.+$/m.test(frontmatter)) fail(`missing name in ${skillPath}`);
-  if (!/^description:\s*.+$/m.test(frontmatter)) fail(`missing description in ${skillPath}`);
-  ok(`skills/${dirName}/SKILL.md`);
-}
-
 function validatePluginManifest() {
   const pluginPath = join(root, '.claude-plugin', 'plugin.json');
   const plugin = readJson(pluginPath);
@@ -97,6 +78,12 @@ function validatePluginManifest() {
     fail('plugin.json should expose outputStyles as ./output-styles');
   } else {
     ok('plugin manifest outputStyles');
+  }
+
+  if ('skills' in plugin) {
+    fail('plugin.json must not expose skills in the skill-free core release');
+  } else {
+    ok('plugin manifest skill-free');
   }
 }
 
@@ -135,16 +122,14 @@ function validateNoLegacyAgents() {
   ok('no legacy agent directories');
 }
 
-function validateStructure() {
+function validateNoEmbeddedSkills() {
   const skillRoot = join(root, 'skills');
-  if (!existsSync(skillRoot)) {
-    fail('missing skills directory');
+  if (existsSync(skillRoot)) {
+    fail('skills directory should not ship in the skill-free core release');
     return;
   }
 
-  for (const dirName of readdirSync(skillRoot)) {
-    validateSkillDirectory(dirName);
-  }
+  ok('no embedded skills directory');
 }
 
 function validateOutputStyles() {
@@ -189,7 +174,7 @@ validateJsonFiles();
 validatePluginManifest();
 validateHooks();
 validateNoLegacyAgents();
-validateStructure();
+validateNoEmbeddedSkills();
 validateOutputStyles();
 validateNativeFirstRouting();
 

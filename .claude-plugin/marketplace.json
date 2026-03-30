@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "hello2cc",
-      "description": "Native-first orchestration plugin for third-party models on Claude Code, with silent Agent model injection and optional output styles.",
-      "version": "0.0.1",
+      "description": "Skill-free, native-first orchestration plugin for third-party models on Claude Code, with silent Agent model injection and persistent output styles.",
+      "version": "0.0.2",
       "source": "./",
       "author": {
         "name": "hello2cc"
