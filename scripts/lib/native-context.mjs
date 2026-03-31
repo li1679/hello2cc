@@ -130,7 +130,7 @@ function buildSessionModelLines(sessionContext = {}) {
   const lines = ['## 会话使用方式'];
 
   lines.push('- 像平常一样直接使用 Claude Code；不需要额外手动加载，也不需要切换到另一套工作流。');
-  lines.push('- 保持简洁、结构化、行动优先；对比、清单、验证结果、任务分工能用表格就用表格。');
+  lines.push('- hello2cc 只补充原生工具/agent/task/team 的使用方式，不替换现有 `CLAUDE.md`、项目规则或用户指定输出格式。');
 
   if (config.sessionModel) {
     lines.push(`- 当前会话模型别名：\`${config.sessionModel}\`。`);
@@ -398,7 +398,11 @@ export function buildSessionStartContext(sessionContext = {}) {
   return [
     '# hello2cc',
     '',
-    'hello2cc 会让你在 Claude Code 里尽量按原生方式工作：优先原生工具、原生 agent、原生 task/team 流程，以及简洁结构化输出。',
+    'hello2cc 会让你在 Claude Code 里尽量按原生方式工作：优先原生工具、原生 agent、原生 task/team 流程。',
+    '',
+    '## 优先级',
+    '- 用户当前消息、Claude Code 宿主规则、`CLAUDE.md` / `AGENTS.md` / 项目规则，始终高于 hello2cc。',
+    '- hello2cc 不得覆盖现有工作流、输出格式、命令路由、顶部/底部信息栏或项目约定。',
     '',
     ...buildSessionModelLines(sessionContext),
     '',
@@ -410,7 +414,8 @@ export function buildSessionStartContext(sessionContext = {}) {
     '',
     '## 输出风格',
     `- 当前插件输出风格：\`${FORCED_OUTPUT_STYLE_NAME}\`。`,
-    '- 保持简洁、结构化、行动优先；清单、对比、验证结果和任务分工优先用表格呈现。',
+    '- 如果更高优先级规则没有指定格式，保持 Claude Code 原生、简洁、结果导向的表达。',
+    '- 如果需要表格，优先 Markdown 表格；只有 Markdown 明显不适合时再使用 ASCII。',
   ].join('\n');
 }
 
@@ -482,7 +487,7 @@ export function buildRouteSteps(prompt, sessionContext = {}) {
   }
 
   if (signals.diagram) {
-    steps.push('需要结构化表达：优先高质量 Markdown/ASCII 表格或图示，保持列宽、标签和连线风格一致。');
+    steps.push('需要结构化表达：优先标准 Markdown 表格或图示；只有 Markdown 明显不适合时再使用 ASCII。');
   }
 
   if (signals.verify) {

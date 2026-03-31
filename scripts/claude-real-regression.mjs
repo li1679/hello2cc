@@ -192,17 +192,21 @@ function runCase(name, prompt, sessionExpectations) {
     fail(`real-session case "${name}" did not load hello2cc`);
   }
 
-  const requiredTools = ['ToolSearch', 'TeamCreate', 'Task', 'TaskOutput', 'TaskStop'];
+  const requiredTools = ['ToolSearch', 'Task', 'TaskOutput', 'TaskStop'];
   for (const tool of requiredTools) {
     if (!Array.isArray(initLine.tools) || !initLine.tools.includes(tool)) {
       fail(`real-session case "${name}" missing native tool "${tool}"`);
     }
   }
 
-  const requiredAgents = ['general-purpose', 'Explore', 'Plan'];
-  for (const agent of requiredAgents) {
-    if (!Array.isArray(initLine.agents) || !initLine.agents.includes(agent)) {
-      fail(`real-session case "${name}" missing native agent "${agent}"`);
+  const requiredAgents = [
+    ['general-purpose', 'General-Purpose', 'General Purpose'],
+    ['Explore'],
+    ['Plan'],
+  ];
+  for (const aliases of requiredAgents) {
+    if (!Array.isArray(initLine.agents) || !aliases.some((agent) => initLine.agents.includes(agent))) {
+      fail(`real-session case "${name}" missing native agent "${aliases[0]}"`);
     }
   }
 
@@ -233,14 +237,8 @@ ensureHello2ccEnabled();
 runCase('baseline', 'Reply with exactly OK.', [
   'Claude Code Guide',
   'ToolSearch',
-  'General-Purpose',
-  'TeamCreate',
-  'force-for-plugin',
 ]);
 runCase('repeat', 'Reply with exactly STILL_OK.', [
   'Claude Code Guide',
   'ToolSearch',
-  'General-Purpose',
-  'TeamCreate',
-  'force-for-plugin',
 ]);

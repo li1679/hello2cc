@@ -53,6 +53,8 @@ function validatePluginManifest() {
   const pluginPath = join(root, '.claude-plugin', 'plugin.json');
   const plugin = readJson(pluginPath);
   if (!plugin) return;
+  const pkg = readJson(join(root, 'package.json'));
+  const marketplace = readJson(join(root, '.claude-plugin', 'marketplace.json'));
 
   if (plugin.hooks === './hooks/hooks.json') {
     fail('plugin.json must not reference standard hooks/hooks.json; that file is auto-loaded');
@@ -85,6 +87,21 @@ function validatePluginManifest() {
     fail('plugin.json must not expose skills in the skill-free core release');
   } else {
     ok('plugin manifest skill-free');
+  }
+
+  if (pkg && plugin.version !== pkg.version) {
+    fail('plugin.json version should match package.json');
+  } else if (pkg) {
+    ok('plugin manifest version sync');
+  }
+
+  const marketplaceEntry = marketplace?.plugins?.find?.((entry) => entry?.name === plugin.name);
+  if (!marketplaceEntry) {
+    fail('marketplace.json should expose the hello2cc plugin entry');
+  } else if (pkg && marketplaceEntry.version !== pkg.version) {
+    fail('marketplace.json plugin version should match package.json');
+  } else {
+    ok('marketplace version sync');
   }
 }
 
@@ -156,6 +173,12 @@ function validateAgents() {
       } else {
         ok('native main agent');
       }
+
+      if (!/CLAUDE\.md|AGENTS\.md/.test(text)) {
+        fail('native main agent should explicitly defer to higher-priority CLAUDE.md / AGENTS.md rules');
+      } else {
+        ok('native main agent precedence');
+      }
     }
   }
 
@@ -217,6 +240,12 @@ function validateOutputStyles() {
     fail('output style should enable force-for-plugin');
   } else {
     ok('output style force-for-plugin');
+  }
+
+  if (!/CLAUDE\.md|AGENTS\.md/.test(text)) {
+    fail('output style should explicitly defer to higher-priority CLAUDE.md / AGENTS.md rules');
+  } else {
+    ok('output style precedence');
   }
 }
 

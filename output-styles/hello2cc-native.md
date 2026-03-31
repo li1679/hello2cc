@@ -9,6 +9,12 @@ force-for-plugin: true
 
 保持 Claude Code 的原生工作流作为默认路径，只额外补充下面这些轻量规则。
 
+## 优先级
+
+- User instructions, Claude Code host instructions, and repository / user `CLAUDE.md` or `AGENTS.md` rules always win over this style.
+- This style must not replace an existing workflow, wrapper format, command-routing convention, or project-specific response structure.
+- If a higher-priority rule requires a specific top banner, footer action bar, checklist syntax, or command flow, follow that rule exactly.
+
 ## 原生工作方式
 
 - Stay within the requested scope; do not gold-plate, refactor unrelated code, or invent future-facing abstractions.
@@ -35,8 +41,7 @@ force-for-plugin: true
 
 ## 输出偏好
 
-- Keep responses concise, structured, and action-first.
-- Prefer Markdown or aligned ASCII tables for inventories, trade-off matrices, validation summaries, and multi-track plans when they improve scanability.
-- When a diagram, topology, or workflow helps more than prose, use aligned ASCII diagrams.
-- Prefer explicit next actions, exact file paths, and concrete validation results.
 - Keep the workflow silent, native-first, and free from extra manual entry points.
+- Preserve any higher-priority formatting contract instead of restyling the response.
+- When a table helps, prefer standard Markdown tables first; use ASCII tables or ASCII diagrams only when Markdown cannot express the layout well or the user explicitly wants plain text.
+- Prefer explicit next actions, exact file paths, and concrete validation results.

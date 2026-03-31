@@ -54,9 +54,11 @@ test('session-start keeps native-first guidance concise and skill-free', () => {
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /像平常一样直接使用 Claude Code/);
+  assert.match(context, /CLAUDE\.md/);
   assert.match(context, /ToolSearch 状态/);
   assert.match(context, /EnterPlanMode\(\)/);
   assert.match(context, /当前插件输出风格/);
+  assert.match(context, /优先 Markdown 表格/);
   assert.match(context, /当前会话模型别名：`opus`/);
   assert.doesNotMatch(context, /Skill\(/);
   assert.doesNotMatch(context, /skills?/i);
@@ -282,6 +284,18 @@ test('route only recommends EnterWorktree when the host exposes it and the user 
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /EnterWorktree/);
+});
+
+test('route prefers markdown-first structured output instead of forcing ascii tables', () => {
+  const env = isolatedEnv();
+  const output = run('route', {
+    session_id: 'route-diagram',
+    prompt: 'Please present the modules as a table or diagram.',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /优先标准 Markdown 表格或图示/);
+  assert.doesNotMatch(context, /Markdown\/ASCII/);
 });
 
 test('route skips explicit slash commands', () => {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 - 2026-04-01
+
+- Reduced hello2cc output-layer interference so user instructions, Claude Code host rules, and repository / user `CLAUDE.md` or `AGENTS.md` now explicitly take precedence over hello2cc overlays
+- Removed the earlier ASCII-leaning presentation bias and switched hello2cc guidance back to Markdown-first tables unless plain-text layout is explicitly needed
+- Tightened main-thread and subagent overlays so hello2cc augments native tool and agent usage without replacing project-specific wrappers, command routing, or branded response formats
+- Bumped the plugin version so Claude Code can install a fresh cache entry instead of continuing to reuse an older `0.2.0` cache payload
+
 ## 0.2.0 - 2026-04-01
 
 - Reworked hello2cc toward a more capability-aware native parity model so session guidance now prioritizes observed tool and agent exposure over broad keyword-triggered routing

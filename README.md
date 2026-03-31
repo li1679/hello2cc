@@ -4,7 +4,7 @@
 
 它不负责 provider、gateway、模型映射或账号权限；它负责的是：**当你已经把第三方模型接入 Claude Code 之后，让这些模型尽量像原生 Opus / Sonnet 一样使用 Claude Code。**
 
-当前版本：`0.2.0`
+当前版本：`0.2.1`
 
 ---
 
@@ -32,14 +32,16 @@
 
 ---
 
-## 0.2.0 的核心方向
+## 0.2.1 的核心方向
 
-`0.2.0` 的重点不是继续堆更多关键词，而是把 hello2cc 进一步收敛成：
+`0.2.1` 的重点是在保持 capability-aware、native-first 的同时，进一步收紧边界，避免 hello2cc 干扰 Claude Code 现有工作流：
 
 - **能力感知优先**：先看当前会话真实暴露了哪些工具和 agent
 - **状态感知优先**：尽量依赖会话上下文、任务状态、团队状态，而不是靠大段关键词猜意图
 - **结构化优先**：能靠任务结构、资源结构、验证证据结构判断的，就少靠自然语言词表
 - **静默增强**：尽量不打断用户现有工作流，不额外引入 skills，不要求手动加载
+- **规则让位**：用户消息、Claude Code 宿主规则、`CLAUDE.md` / `AGENTS.md` / 项目规则，始终高于 hello2cc
+- **格式不接管**：如果你的工作流要求顶部信息栏、底部操作栏、固定格式或特殊命令路由，hello2cc 不应覆盖它们
 
 这能明显降低：
 
@@ -60,7 +62,7 @@
 | 原生 team | 多线任务优先 `TeamCreate`，续派优先 `SendMessage`，完成后 `TeamDelete` |
 | 用户交互 | 当执行只被一个真实选择阻塞时，更自然地用 `AskUserQuestion` |
 | MCP / connected tools | 优先 `ListMcpResources` / `ReadMcpResource` 与原生 MCP 工具，而不是先上网搜索 |
-| 输出风格 | 默认更接近 Claude Code 的简洁、结构化、行动优先输出；对比、矩阵、验证结果优先表格 |
+| 输出风格 | 默认更接近 Claude Code 的简洁、结构化、行动优先输出；如无更高优先级格式约束，优先 Markdown 表格而不是强推 ASCII |
 | 模型一致性 | 仅在必要时让 `Claude Code Guide` / `Explore` 与当前会话模型保持一致，避免子代理走偏 |
 
 ---
@@ -74,6 +76,7 @@
 - 覆盖你已经显式传入的 `model`
 - 让 Claude Code 进入另一套“插件专属工作流”
 - 修改你的用户级持久化 `settings.json`
+- 覆盖 `CLAUDE.md` / `AGENTS.md` / 项目规则里已经定义的输出格式、命令路由或包装约定
 
 也就是说，它追求的是：
 
@@ -89,6 +92,7 @@
 - 仅对必要的原生 `Agent` 路径做最小模型修正
 - 当前会话真实没暴露某项能力时，不会假装那项能力存在
 - `force-for-plugin` output style 跟随插件启用状态，不污染用户全局设置
+- 如果用户、仓库或 `CLAUDE.md` 已经规定了输出结构，hello2cc 会让位而不是重写格式
 - 插件禁用后，原生会话会回到 Claude Code 默认路径
 
 如果你在 Claude Code 里：
