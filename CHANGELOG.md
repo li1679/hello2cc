@@ -1,9 +1,9 @@
 # Changelog
 
-## 0.0.9 - 2026-03-31
+## 0.0.10 - 2026-03-31
 
-- Shortened the default plugin main-agent runtime id from `hello2cc:hello2cc-native-main` to `hello2cc:main`, reducing namespace noise while preserving the same native-first behavior
-- Switched the plugin default agent setting to the actual namespaced runtime agent id `hello2cc:main`, matching Claude Code's plugin agent loader
+- Renamed the default plugin main-agent runtime id from `hello2cc:main` to `hello2cc:native`, making the active native-first role more self-explanatory while keeping the same `model: inherit` behavior
+- Switched the plugin default agent setting to the actual namespaced runtime agent id `hello2cc:native`, matching Claude Code's plugin agent loader
 - Switched the plugin output style to Claude Code's official `force-for-plugin` path so the native-first style is applied without mutating user `settings.json`
 - Removed automatic user-settings output-style bootstrapping and the related runtime script in favor of the host-supported plugin output-style mechanism
 - Narrowed `Agent.model` injection to the places that truly need correction (`Claude Code Guide`, `Explore`, and explicit override cases), preserving Claude Code's native inherit behavior for `Plan`, `general-purpose`, and custom agents by default

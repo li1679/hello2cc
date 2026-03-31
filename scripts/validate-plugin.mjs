@@ -146,12 +146,12 @@ function validateAgents() {
   if (!existsSync(agentsPath)) {
     fail('agents directory should exist to provide the default main-thread agent');
   } else {
-    const mainAgentPath = join(agentsPath, 'main.md');
+    const mainAgentPath = join(agentsPath, 'native.md');
     if (!existsSync(mainAgentPath)) {
-      fail('missing agents/main.md');
+      fail('missing agents/native.md');
     } else {
       const text = readFileSync(mainAgentPath, 'utf8');
-      if (!/name:\s*main/m.test(text) || !/model:\s*inherit/m.test(text)) {
+      if (!/name:\s*native/m.test(text) || !/model:\s*inherit/m.test(text)) {
         fail('hello2cc main agent should declare name and model: inherit');
       } else {
         ok('native main agent');
@@ -174,8 +174,8 @@ function validateAgents() {
   const settings = readJson(settingsPath);
   if (!settings) return;
 
-  if (settings.agent !== 'hello2cc:main') {
-    fail('settings.json should activate namespaced agent hello2cc:main');
+  if (settings.agent !== 'hello2cc:native') {
+    fail('settings.json should activate namespaced agent hello2cc:native');
   } else {
     ok('plugin default agent setting');
   }

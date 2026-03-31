@@ -101,11 +101,11 @@ function assertPluginCacheShape(pluginPath, name) {
   }
 
   const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-  if (settings.agent !== 'hello2cc:main') {
+  if (settings.agent !== 'hello2cc:native') {
     fail(`real-session case "${name}" plugin settings did not activate the namespaced hello2cc main agent`);
   }
 
-  const agentPath = join(pluginPath, 'agents', 'main.md');
+  const agentPath = join(pluginPath, 'agents', 'native.md');
   if (!existsSync(agentPath)) {
     fail(`real-session case "${name}" missing hello2cc native main agent`);
   }
@@ -168,7 +168,7 @@ function runCase(name, prompt, sessionExpectations) {
     }
   }
 
-  if (!Array.isArray(initLine.agents) || !initLine.agents.includes('hello2cc:main')) {
+  if (!Array.isArray(initLine.agents) || !initLine.agents.includes('hello2cc:native')) {
     fail(`real-session case "${name}" missing namespaced hello2cc main agent`);
   }
 
