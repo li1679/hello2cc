@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.1.2 - 2026-03-31
+## 0.1.3 - 2026-03-31
 
 - Added a GitHub Actions npm publishing pipeline at `.github/workflows/publish.yml`, aligned with the helloloop release flow and supporting both tag-triggered releases and manual dispatch
 - Added npm publish metadata in `package.json` and release documentation in `README.md`, including support for both `NPM_TOKEN` and trusted-publishing based automation
+- Fixed the GitHub Actions publish workflow so npm token detection no longer relies on unsupported `secrets.*` checks inside `if:` expressions, which previously caused zero-job failed workflow runs
 
 ## 0.1.1 - 2026-03-31
 

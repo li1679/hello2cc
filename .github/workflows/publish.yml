@@ -109,6 +109,8 @@ jobs:
 
       - name: Write summary
         shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           {
             echo "### Publish Info"
@@ -119,7 +121,7 @@ jobs:
             echo "| npm version | ${{ steps.tag.outputs.npm_version }} |"
             echo "| Channel | ${{ steps.tag.outputs.channel }} |"
             echo "| Beta | ${{ steps.tag.outputs.is_beta }} |"
-            if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            if [ -n "$NODE_AUTH_TOKEN" ]; then
               echo "| Auth mode | NPM_TOKEN |"
             else
               echo "| Auth mode | Trusted publishing (OIDC) |"
@@ -132,6 +134,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout tag
         uses: actions/checkout@v5
@@ -164,13 +168,11 @@ jobs:
         run: npm pack --dry-run
 
       - name: Publish with NPM token
-        if: secrets.NPM_TOKEN != ''
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: env.NODE_AUTH_TOKEN != ''
         run: npm publish --access public --tag ${{ needs.prepare.outputs.channel }}
 
       - name: Publish with trusted publishing
-        if: secrets.NPM_TOKEN == ''
+        if: env.NODE_AUTH_TOKEN == ''
         run: npm publish --access public --tag ${{ needs.prepare.outputs.channel }}
 
   release:
