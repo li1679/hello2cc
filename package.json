@@ -1,8 +1,8 @@
 {
   "name": "hello2cc",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "type": "module",
-  "description": "Skill-free, native-first Claude Code plugin that now ships a default inherit-model main agent, mirrors active session models into native agents, and silently bootstraps native-first behavior for third-party models.",
+  "description": "Skill-free, native-first Claude Code plugin that uses a namespaced default main agent, force-for-plugin output style, and minimal native agent model injection to make third-party models feel more like Claude Code native models.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

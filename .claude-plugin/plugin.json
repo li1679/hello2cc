@@ -1,7 +1,7 @@
 {
   "name": "hello2cc",
-  "version": "0.0.7",
-  "description": "Skill-free, native-first Claude Code plugin with a default inherit-model main agent, current-session model mirroring, finer-grained Agent/TeamCreate routing, and optional output-style bootstrapping.",
+  "version": "0.0.9",
+  "description": "Skill-free, native-first Claude Code plugin with a namespaced default main agent, current-session model mirroring, finer-grained Agent/TeamCreate routing, and a force-for-plugin output style.",
   "author": {
     "name": "hello2cc"
   },
@@ -34,55 +34,43 @@
     "primary_model": {
       "title": "Primary Model",
       "type": "string",
-      "description": "主会话与高能力原生 Agent 默认模型，例如 cc-gpt-5.4 或 opus。留空时优先镜像当前会话模型，否则默认 cc-gpt-5.4。",
+      "description": "高能力原生 Agent 的显式模型，例如 cc-gpt-5.4 或 opus。留空时优先镜像当前会话模型；如果当前会话本就会 inherit，则不额外硬编码。",
       "sensitive": false
     },
     "subagent_model": {
       "title": "Subagent Model",
       "type": "string",
-      "description": "所有未显式指定模型的原生 Agent 默认模型。留空时优先使用 CLAUDE_CODE_SUBAGENT_MODEL，再镜像当前会话模型，最后回退主模型。",
+      "description": "为未显式指定模型的原生 Agent / teammate 提供统一显式模型。留空时尽量保留 Claude Code 原生 inherit / 当前会话镜像行为。",
       "sensitive": false
     },
     "guide_model": {
       "title": "Guide Model",
       "type": "string",
-      "description": "Claude Code Guide（内部标识 claude-code-guide）的显式模型，例如 cc-gpt-5.4。留空时默认 cc-gpt-5.4。",
+      "description": "Claude Code Guide（内部标识 claude-code-guide）的显式模型，例如 cc-gpt-5.4。留空时优先镜像当前会话模型。",
       "sensitive": false
     },
     "explore_model": {
       "title": "Explore Model",
       "type": "string",
-      "description": "Explore 的显式模型，例如 cc-gpt-5.3-codex-medium。留空时默认 cc-gpt-5.3-codex-medium。",
+      "description": "Explore 的显式模型，例如 cc-gpt-5.3-codex-medium。留空时优先镜像当前会话模型，而不是插件再硬编码轻量模型。",
       "sensitive": false
     },
     "plan_model": {
       "title": "Plan Model",
       "type": "string",
-      "description": "Plan 的显式模型。留空则继承主模型或 subagent_model。",
+      "description": "Plan 的显式模型。留空时默认保留 Claude Code 原生 inherit 行为；仅在你想强制覆盖时填写。",
       "sensitive": false
     },
     "general_model": {
       "title": "General Model",
       "type": "string",
-      "description": "General-Purpose（内部标识 general-purpose）的显式模型。留空则继承主模型或 subagent_model。",
+      "description": "General-Purpose（内部标识 general-purpose）的显式模型。留空时默认保留 Claude Code 原生 inherit 行为；仅在你想强制覆盖时填写。",
       "sensitive": false
     },
     "team_model": {
       "title": "Team Model",
       "type": "string",
-      "description": "带 team_name 的原生 Agent 默认模型。留空则继承 subagent_model。",
-      "sensitive": false
-    },
-    "bootstrap_output_style": {
-      "title": "Bootstrap Output Style",
-      "type": "string",
-      "description": "是否在首次 SessionStart 或插件升级后自动把 outputStyle 写入用户级 ~/.claude/settings.json。可选：user-if-unset（默认）、force-user、off。",
-      "sensitive": false
-    },
-    "managed_output_style": {
-      "title": "Managed Output Style",
-      "type": "string",
-      "description": "自动写入用户级 settings.json 的输出风格名称。默认 hello2cc Native。",
+      "description": "带 team_name 的原生 Agent 显式模型。留空时默认保留 Claude Code 原生 inherit 行为；仅在你想强制覆盖团队 teammate 时填写。",
       "sensitive": false
     }
   }

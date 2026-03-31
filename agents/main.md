@@ -1,5 +1,5 @@
 ---
-name: hello2cc-native-main
+name: main
 description: Native-first main-thread orchestration overlay for third-party models running inside Claude Code. Use as the default session agent to proactively discover tools, plan non-trivial work, delegate bounded slices to built-in agents, prefer TeamCreate for multi-track work, and present comparisons or validation summaries in tables when helpful.
 model: inherit
 ---

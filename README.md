@@ -2,199 +2,232 @@
 
 `hello2cc` 是一个面向 Claude Code 的 **skill-free、native-first** 插件。
 
-它不负责 provider 绑定，也不重造一套“插件 + skills + 伪代理”的替代工作流；它只做一件事：
+它不负责接管 provider、网关或模型映射；它只负责在你已经用 `ccswitch`、provider profile、模型网关或原生槽位映射把第三方模型接进 Claude Code 之后，让这些模型在 Claude Code 里更接近原生 `Opus / Sonnet` 的使用体验。
 
-**让已经通过 `ccswitch`、provider profile、网关映射或模型别名方式接入 Claude Code 的第三方大模型，在 Claude Code 里尽可能接近原生 `Opus / Sonnet` 的使用体验。**
+当前版本：`0.0.9`
 
-从 `0.0.7` 开始，`hello2cc` 重点聚焦五件事：
+---
 
-- 默认主线程 `agent`（`model: inherit`）
-- 主会话模型别名镜像到原生 `Agent` / `TeamCreate`
-- 原生优先的工具、计划、子代理、团队路由
-- 子代理与任务完成质量护栏
-- 安装后默认静默引导、可选自动写入持久化 `outputStyle`
+## 这个插件解决什么问题
 
-## 目标
-
-`hello2cc` 要解决的问题不是“如何把第三方模型接入 Claude Code”。
+`hello2cc` 不解决“第三方模型如何接入 Claude Code”。
 
 那一层应该继续交给：
 
 - `ccswitch`
-- provider profile
-- 模型网关
-- 原生槽位映射
+- provider profile / gateway
+- 原生模型槽位映射
+- 你自己的第三方 API 代理
 
 `hello2cc` 解决的是下一层：
 
-> 当第三方模型已经能被 Claude Code 正常调用后，如何让它们更像原生模型一样主动发现能力、优先走 `ToolSearch`、使用 `Plan`、调用原生 `Agent` / `TeamCreate` / `Task*`，并保持更贴近原生的输出与编排风格。
+> 当第三方模型已经能被 Claude Code 正常调用后，如何让它们更像 Claude Code 原生模型一样：
+>
+> - 主动先用原生工具
+> - 更自然地走 `ToolSearch`
+> - 更自然地走 `Plan` / `Task*`
+> - 更自然地调用原生 `Agent` / `TeamCreate`
+> - 输出更接近原生 Claude Code 的简洁、结构化、行动优先风格
 
-## 设计原则
+---
 
-- **Provider 无关**：不绑定任何第三方 API、网关或厂商
-- **原生优先**：优先使用 Claude Code 内建能力，而不是技能包或文本模拟流程
-- **静默运行**：安装后即可工作，不依赖每次任务前手动加载 skills
-- **低侵入**：只在原生 hooks、原生 Agent 调用和少量持久配置上增强
-- **可安全切换**：切回 Claude 原生模型，或切换新的第三方映射方案时，不需要重写插件
+## 0.0.9 的核心方向
 
-## 核心能力
+这次版本直接对齐了 Claude Code 最新插件机制里的两条官方路径：
 
-### 1）默认主线程 agent：更像原生 Opus 的静默总控层
+1. **插件默认主线程 agent**
+2. **插件 `force-for-plugin` output style**
 
-这是 `0.0.7` 的核心增强。
+同时保留最小必要的 hook 增强：
 
-`hello2cc` 现在内置一个默认主线程 agent：
+- `SessionStart`
+- `UserPromptSubmit`
+- `PreToolUse(Agent)`
+- `SubagentStart`
+- `SubagentStop`
+- `TaskCompleted`
+- `ConfigChange`
 
-- 名称：`hello2cc-native-main`
-- 模型：`inherit`
-- 作用：在**不锁死主模型槽位**的前提下，把 Claude Code 主线程默认收敛到更 native-first 的工作方式
+目标是：
 
-这意味着：
+- 不靠 skills
+- 不靠每次手动加载
+- 不靠写用户 `~/.claude/settings.json`
+- 尽量复用 Claude Code 已有原生能力
 
-- 如果你当前主模型槽位是 `opus`，这个主线程 agent 会继续继承 `opus`
-- 如果你通过 `ccswitch` 把 `opus` 映射到第三方模型，主线程仍然保持同一个原生槽位入口
-- 它不会强行替换 Claude Code 的工具体系，而是更稳定地推动 `ToolSearch`、`Plan`、`Agent`、`TeamCreate`、`Task*`
-- 比单纯依赖 output style 更稳定，也更接近“安装后静默生效”
+---
 
-插件根目录现在还提供官方支持的 `settings.json`：
-
-```json
-{
-  "agent": "hello2cc-native-main"
-}
-```
-
-这让插件在启用后可以默认把主线程切到这个继承当前模型的 agent，而不需要 skills，也不需要每次手动加载。
-
-### 2）当前主模型别名镜像到原生 Agent / Team
-
-这是 `0.0.6` 引入、并在 `0.0.7` 继续补强的能力。
-
-`hello2cc` 现在不只依赖 hook payload 本身，还会结合 Claude Code transcript 中稳定可观测的 session 信息，尽量识别当前会话主模型，并在 `PreToolUse(Agent)` 里对缺失 `model` 的原生 Agent 调用做静默补齐。
-
-默认行为：
-
-- 如果当前主会话模型是 `opus`，原生 `Plan` / `General-Purpose` / `Claude Code Guide` / 团队 teammate 也会优先继承 `opus`
-- 如果你通过 `ccswitch` 把 `opus` 实际映射到第三方模型，子代理和团队就会继续沿着这个原生槽位工作
-- 如果你显式给某个 Agent 指定了 `model`，`hello2cc` 不会覆盖
-- 如果你明确配置了 `primary_model`、`general_model`、`explore_model` 等插件选项，这些显式值优先
-
-这让 `hello2cc` 更接近“跟随当前会话原生模型行为”，而不是“插件自己硬编码一套模型名”。
-
-### 3）原生优先路由
-
-`hello2cc` 在 `SessionStart` 和 `UserPromptSubmit` 里建立一个很薄的 native-first 行为基线：
-
-- 先 `ToolSearch`，再判断工具、权限、MCP、agent 类型、插件能力是否存在
-- 非 trivial 工作优先 `EnterPlanMode()` 或 `TaskCreate / TaskUpdate / TaskList`
-- 开放式探索优先 `Agent(Explore)` / `Agent(Plan)`
-- 边界清晰的实现、修复、验证切片优先 `Agent(General-Purpose)`
-- Claude Code / hooks / MCP / settings / Agent SDK / API 问题优先 `Agent(Claude Code Guide)`
-- 存在并行空间时优先 `Agent` 并行，持续协作优先 `TeamCreate + Task*`
-- 涉及外部系统和连接器时优先 `ToolSearch` 后走 MCP / connected tools
-- 收尾前先做最贴近改动范围的验证
-
-### 4）安装后静默引导 output style
-
-`hello2cc` 仍然提供 `hello2cc Native` output style，但从 `0.0.6` 开始，它支持**自动引导**：
-
-- 默认策略：`bootstrap_output_style = user-if-unset`
-- 行为：在插件首次生效或升级后的第一次 `SessionStart`，如果用户级 `~/.claude/settings.json` 尚未设置 `outputStyle`，且当前项目没有更高优先级的项目级样式覆盖，插件会自动写入：
-
-```json
-{
-  "outputStyle": "hello2cc Native"
-}
-```
-
-注意两点：
-
-- 当前会话启动后才写入，因此**下一个新会话**才会看到这个 output style 生效
-- 如果你追求“尽量严格接近 Claude Code 默认主 system prompt”，可以把 `bootstrap_output_style` 设为 `off`
-
-也就是说，`hello2cc` 现在支持“默认零手动”，但不再强依赖用户自己每次去 `/config` 选择一次。
-
-### 5）更细粒度的子代理 / 团队质量护栏
-
-为了让第三方模型不只是“能调原生 Agent”，而是更像原生模型那样**把 Agent / Team 用对、用稳、用完整**，`hello2cc` 还增加了：
-
-- `SubagentStart`：按 `Explore` / `Plan` / `General-Purpose` 注入更贴合职责的上下文
-- `SubagentStop`：拦截空泛总结，要求精确路径、结构化计划和验证证据
-- `TaskCompleted`：拦截没有交付证据或完成标准的任务关闭
-
-## 一句话架构
+## 当前架构
 
 ```text
 第三方模型 API
         │
         ▼
-网关 / ccswitch / provider profile / 槽位映射
+ccswitch / provider profile / gateway / 原生槽位映射
         │
         ▼
-Claude Code 主模型槽位（如 opus / sonnet）
+Claude Code 当前主模型槽位（如 opus / sonnet）
         │
         ▼
 hello2cc
-├─ settings.json       -> 默认启用 `hello2cc-native-main` 主线程 agent
-├─ agents/             -> `hello2cc-native-main`（model: inherit）
-├─ SessionStart        -> 建立 native-first 基线 + 初始化持久策略
-├─ UserPromptSubmit    -> 注入轻量原生路由提示
-├─ transcript context  -> 从 transcript 补全当前会话模型 / output style 观测
-├─ PreToolUse(Agent)   -> 缺失 model 时镜像当前主模型或按插件配置补齐
-├─ SubagentStart       -> 内建 Explore / Plan / General-Purpose 上下文增强
-├─ SubagentStop        -> 子代理输出质量护栏
-├─ TaskCompleted       -> 团队任务完成证据护栏
-└─ output-style boot   -> 可选自动写入持久 outputStyle
+├─ settings.json                    -> 默认主线程 agent（插件级，最低优先级）
+├─ agents/main.md                   -> model: inherit
+├─ output-styles/hello2cc-native.md -> force-for-plugin: true
+├─ SessionStart                     -> 建立 native-first 行为基线
+├─ UserPromptSubmit                 -> 注入轻量原生路由提示
+├─ PreToolUse(Agent)                -> 仅修正必要的原生 agent 模型路径
+├─ transcript/session cache         -> 恢复当前真实会话模型
+├─ ConfigChange                     -> 配置变化后清空陈旧 session 镜像
+├─ SubagentStart                    -> Explore / Plan / General-Purpose 职责增强
+├─ SubagentStop                     -> 子代理输出质量护栏
+└─ TaskCompleted                    -> 任务完成证据护栏
 ```
 
-## 与 ccswitch / 原生槽位映射的关系
+---
 
-如果你已经使用 `ccswitch` 或其他映射层，把第三方模型映射到了 Claude Code 原生槽位，`hello2cc` 最合适的工作方式是：
+## 关键设计
 
-- 你负责 **模型映射**
-- Claude Code 负责 **主线程模型选择**
-- `hello2cc` 负责 **让子代理、团队与路由更贴近原生行为**
+### 1）默认主线程 agent：走官方支持路径
 
-### 推荐模式：让 hello2cc 跟随当前会话模型
+插件根目录内置了：
 
-默认情况下，`hello2cc` 会启用：
+```json
+{
+  "agent": "hello2cc:main"
+}
+```
 
-- `mirror_session_model = true`
+这不是随便写的字符串，而是 Claude Code 插件 agent 在运行时的**真实命名空间名称**。
 
-因此如果你当前用的是：
+主线程 agent 文件本身仍然是：
 
-- `/model opus`
-- 或者 settings 中默认主模型就是 `opus`
+- `agents/main.md`
 
-那么 `hello2cc` 会优先把 `opus` 镜像给需要 `model` 的原生 Agent。
+但 Claude Code 在加载插件 agent 时会自动命名空间化，所以最终 agent id 是：
 
-这正是最接近“像原生 Opus 一样工作”的方式。
+- `hello2cc:main`
 
-### 如果你想手动固定某些 Agent 模型
-
-也可以显式配置，例如：
-
-- `explore_model = sonnet`
-- `general_model = opus`
-- `guide_model = opus`
-
-这样可以把探索代理固定到更轻量的槽位，而把实现/规划代理固定到高能力槽位。
-
-### 主线程为什么也能保持“当前模型一致”
-
-因为默认主线程 agent 使用的是：
+它的模型设置是：
 
 - `model: inherit`
 
-这不是在插件里重新硬编码一个模型，而是让主线程 agent 跟随 Claude Code 当前会话已选中的模型槽位。
+这意味着：
 
-所以如果你切换了：
+- 如果你当前主会话是 `opus`，它继续 inherit `opus`
+- 如果你把 `opus` 映射到了第三方模型，它继续 inherit 那个映射后的槽位
+- 插件不会把主线程硬锁到某个固定第三方模型名
 
-- `/model opus`
-- `/model sonnet`
-- 或者修改了上层映射
+### 2）output style：改为 `force-for-plugin`
 
-主线程入口不会因此被插件锁死到某个固定模型名。
+`0.0.9` 不再自动写用户级 `~/.claude/settings.json`。
+
+现在使用的是 Claude Code 插件 output style 的官方机制：
+
+```yaml
+force-for-plugin: true
+```
+
+这带来几个变化：
+
+- 启用插件后，宿主支持该机制时会直接应用 hello2cc 的 output style
+- 不需要手动去 `/config` 里选择
+- 不需要在首次启动时偷偷改用户 settings
+- 插件卸载或禁用后，也不会留下持久化的 outputStyle 污染
+
+hello2cc 的 output style 被设计成**很薄的一层覆盖**：
+
+- 保持 Claude Code 原生工作流
+- 强调 concise / structured / action-first
+- 强调表格优先展示 inventories / matrices / validation summaries
+- 不把主线程强行改造成“插件自定义流程”
+
+### 3）Agent 模型注入：缩到最小必要范围
+
+`0.0.9` 不再对所有原生 `Agent` 调用大面积硬注入模型。
+
+现在只在这些场景优先修正：
+
+- `Claude Code Guide`
+- `Explore`
+- 你显式配置了 `plan_model`
+- 你显式配置了 `general_model`
+- 你显式配置了 `team_model`
+- 你显式配置了 `subagent_model`
+
+这样做的目的，是尽量保留 Claude Code 原生行为：
+
+- `Plan` 默认本来就是 `inherit`，那就不改
+- `general-purpose` 默认本来就更接近 native inherit，那就不乱改
+- 自定义 agent 默认本来就能 inherit，那就不乱改
+
+只在源码里已知会偏向轻量模型的路径上做修正，避免“插件过度接管”
+
+### 4）配置变更后不保留陈旧 session 镜像
+
+增加了 `ConfigChange` hook。
+
+当 Claude Code 的相关 settings 变化时，hello2cc 会清空缓存的 session model snapshot，避免：
+
+- 之前会话里的旧模型别名
+- 在配置切换后继续被误复用
+
+这让切换模型映射、切换默认模型、替换配置文件时更稳。
+
+---
+
+## 为什么这样更接近原生体验
+
+因为 Claude Code 最新源码已经表明：
+
+- 插件可以官方式设置默认 `agent`
+- 插件 output style 可以官方式 `force-for-plugin`
+- 插件 settings 只允许安全的少量字段进入 settings cascade
+- `PreToolUse` hook 可以把 `updatedInput` 真正送进工具执行
+- `transcript_path` 是官方稳定 hook 输入字段
+
+也就是说，`hello2cc` 现在尽量走的都是：
+
+- 宿主本来就支持的入口
+- 宿主本来就支持的能力
+- 宿主本来就支持的优先级体系
+
+而不是再造一套 skills-first 的旁路工作流。
+
+---
+
+## 插件会不会影响 Claude 原生模型或别的模型
+
+### 主线程 agent 不会把你锁死
+
+Claude Code 最新源码里，插件 settings 是 settings cascade 的**最低优先级 base layer**。
+
+这意味着：
+
+- 插件默认 agent 只是一个底层默认值
+- 用户 settings / 项目 settings / local settings / CLI 参数 都能覆盖它
+
+所以：
+
+- 你手动切换 agent
+- 你改更高优先级 settings
+- 你切换回原生模型
+
+都不会被这个插件永久锁死。
+
+### output style 会跟随插件启用状态
+
+`force-for-plugin` 的含义是：
+
+- 插件启用时，该 output style 生效
+- 插件禁用/卸载时，不再生效
+
+它不会像旧方案那样改写用户持久化 settings。
+
+如果你希望完全回到宿主默认 output style：
+
+- 直接禁用插件即可
+
+---
 
 ## 安装
 
@@ -210,63 +243,73 @@ hello2cc
 /plugin install hello2cc@hello2cc-local
 ```
 
-### 3）安装后会自动发生什么
+### 3）新开会话后直接使用
 
-安装后不需要再依赖 skills，也不需要每次任务前手动加载任何入口。
+安装后不需要再加载 skills。
 
-默认情况下：
+默认会发生：
 
-- 插件会默认启用 `hello2cc-native-main` 主线程 agent
-- 插件会在新会话里自动建立 native-first 行为基线
-- 插件会自动镜像当前主模型到原生 Agent / Team teammate
-- 插件会在首次生效或升级后的第一次 `SessionStart`，尝试把 `hello2cc Native` 写入用户级 `outputStyle`
+- 主线程默认走 `hello2cc:main`
+- output style 通过 `force-for-plugin` 自动应用
+- 原生 `Agent` / `TeamCreate` / `Task*` / `ToolSearch` 路由被轻量增强
+- 当前会话模型会优先用于必要的原生 agent 修正
 
-因此一般只需要：
-
-1. 安装插件
-2. 新开一个 Claude Code 会话
-3. 直接开始工作
+---
 
 ## 配置项
 
-| 配置键 | 默认值 | 说明 |
+| 配置键 | 默认行为 | 说明 |
 |---|---|---|
-| `routing_policy` | `native-inject` | 原生优先路由策略；`prompt-only` 时只做提示，不做 Agent.model 注入 |
-| `mirror_session_model` | `true` | 缺失 `model` 的原生 Agent 是否默认镜像当前主会话模型别名 |
-| `primary_model` | 空 | 显式主模型；为空时优先镜像当前会话模型，否则回退 `cc-gpt-5.4` |
-| `subagent_model` | 空 | 显式子代理默认模型；为空时优先使用 `CLAUDE_CODE_SUBAGENT_MODEL`，再镜像当前会话模型 |
-| `guide_model` | 空 | `Claude Code Guide` 的显式模型；为空时继承主模型 |
-| `explore_model` | 空 | `Explore` 的显式模型；为空时优先镜像当前会话模型，再回退 `cc-gpt-5.3-codex-medium` |
-| `plan_model` | 空 | `Plan` 的显式模型；为空时继承主模型 |
-| `general_model` | 空 | `General-Purpose` 的显式模型；为空时继承主模型 |
-| `team_model` | 空 | 带 `team_name` 的 teammate 默认模型；为空时继承 `subagent_model` |
-| `bootstrap_output_style` | `user-if-unset` | output style 自动写入策略：`user-if-unset` / `force-user` / `off` |
-| `managed_output_style` | `hello2cc Native` | 自动写入用户级 settings 的 output style 名称 |
+| `routing_policy` | `native-inject` | `native-inject` 会对必要路径静默补 `Agent.model`；`prompt-only` 只注入提示，不改工具输入 |
+| `mirror_session_model` | `true` | 优先镜像当前会话模型别名 |
+| `primary_model` | 空 | 高能力原生 agent 的显式模型；为空时优先用当前会话模型 |
+| `subagent_model` | 空 | 为未显式设模的原生 agent / teammate 强制指定统一模型；为空时尽量保留宿主 inherit |
+| `guide_model` | 空 | `claude-code-guide` 的显式模型 |
+| `explore_model` | 空 | `Explore` 的显式模型 |
+| `plan_model` | 空 | 仅当你想强制覆盖 `Plan` 时填写 |
+| `general_model` | 空 | 仅当你想强制覆盖 `general-purpose` 时填写 |
+| `team_model` | 空 | 仅当你想强制覆盖带 `team_name` 的 teammate 时填写 |
+
+---
 
 ## 推荐配置
 
-### 配置 A：追求最接近原生 Opus 体验
+### 配置 A：最接近原生槽位体验
 
-适合你已经通过 `ccswitch` 或 provider 映射，把第三方模型映射到 Claude Code 原生槽位。
-
-- `mirror_session_model = true`
-- `bootstrap_output_style = off`
-
-这样默认主线程 agent 与子代理都会尽量跟随当前原生模型槽位，主会话也不会被额外 output style 改写。
-
-### 配置 B：追求更稳定的结构化输出
+适合已经用 `ccswitch` 或网关把第三方模型映射到了 Claude Code 原生槽位。
 
 - `mirror_session_model = true`
-- `bootstrap_output_style = user-if-unset`
+- 其他模型配置全部留空
 
-这样保留当前主模型镜像，同时让插件自动把 `hello2cc Native` 设为默认输出风格。
+效果：
 
-### 配置 C：强制托管 output style
+- 主线程 inherit 当前槽位
+- `Claude Code Guide` / `Explore` 优先跟随当前会话模型
+- `Plan` / `general-purpose` / 自定义 agent 默认保留宿主 inherit
 
-- `bootstrap_output_style = force-user`
-- `managed_output_style = hello2cc Native`
+### 配置 B：只修正 Guide / Explore
 
-适合你明确希望插件在升级后自动把用户级 `outputStyle` 重置为 `hello2cc Native`。
+- `mirror_session_model = true`
+- `subagent_model` 留空
+- `plan_model` / `general_model` / `team_model` 留空
+
+这是当前默认思路，侵入性最低。
+
+### 配置 C：你明确要强制某些子代理走固定模型
+
+例如：
+
+- `guide_model = cc-gpt-5.4`
+- `explore_model = cc-gpt-5.3-codex-medium`
+
+或：
+
+- `general_model = opus`
+- `team_model = opus`
+
+只有在你明确想覆盖宿主 native inherit 时再这样配。
+
+---
 
 ## 本地验证
 
@@ -279,27 +322,33 @@ npm run test:real
 
 说明：
 
-- `npm run validate`：校验 manifest、hooks、核心脚本与 output style
-- `npm test`：执行单元测试，包括 transcript 驱动的会话模型发现、模型镜像、默认主线程 agent 相关约束、output style 自动写入、子代理与任务护栏
+- `npm run validate`：校验 manifest、hooks、settings、output style 和核心脚本结构
+- `npm test`：运行单元测试，覆盖 session model mirror、namespaced default agent、ConfigChange 清理、最小必要模型注入等
 - `npm run check`：组合执行 `validate + test`
-- `npm run test:real`：调用本机 Claude Code CLI 做真实会话回归，验证插件是否正确装载、原生工具/Agent 能力面是否暴露、插件缓存是否保持 skill-free 形态
+- `npm run test:real`：调用本机 Claude Code CLI 做真实会话回归
+
+---
 
 ## 当前边界
 
-`hello2cc` 能显著拉近第三方模型与原生模型在 Claude Code 里的体验，但边界仍然存在：
+`hello2cc` 能显著把第三方模型体验拉近 Claude Code 原生模型，但它不是字节级复刻。
 
-- 它无法公开 Claude Code 未公开的内部 system prompt
-- 它无法复刻官方模型内部隐藏策略、工具选择偏好和 provider 侧特性
-- 它能增强显式 `Agent` / `TeamCreate` / `Task*` 流程，但不能保证 Claude Code 内部所有隐藏模型路径都可拦截
-- output style 属于主会话 system prompt 层增强，是否启用要在“更结构化”与“更贴近默认主 prompt”之间做权衡
+当前边界包括：
 
-因此，`hello2cc` 的目标不是“字节级复刻原生 Opus”，而是：
+- 无法拿到 Claude Code 内部未公开的完整 system prompt
+- 无法复制 Claude 官方模型内部的隐藏策略和 provider 侧特性
+- 无法保证所有内部未公开路径都可被插件 hook 拦截
+- `force-for-plugin` output style 会在插件启用时统一生效；如果你想完全关闭这层覆盖，需要禁用插件
 
-**在不依赖 skills、不依赖每次手动加载、尽量保留 Claude Code 原生工作流的前提下，把第三方模型体验尽可能推近原生模型。**
+所以它的目标不是：
 
-## 版本
+- “完全复制 Opus 的每一个内部行为”
 
-当前版本：`0.0.7`
+而是：
+
+- **在不依赖 skills、不依赖手动加载、不破坏 Claude Code 原生工作流的前提下，让第三方模型尽可能接近原生体验。**
+
+---
 
 ## 许可证
 

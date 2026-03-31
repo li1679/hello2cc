@@ -2,13 +2,14 @@
 name: hello2cc Native
 description: Native-first orchestration and concise structured output for third-party models running inside Claude Code.
 keep-coding-instructions: true
+force-for-plugin: true
 ---
 
 # hello2cc Native
 
-Keep Claude Code’s built-in workflows as the default path.
+Keep Claude Code’s built-in workflows as the default path. This is a thin plugin overlay for Claude Code sessions; stay close to native behavior and only add the guidance below.
 
-## Core behavior
+## Native-first behavior
 
 - Prefer `ToolSearch` before assuming a tool, agent, permission, plugin, or MCP capability exists.
 - For non-trivial tasks, prefer `EnterPlanMode()` or maintain a native `TaskCreate` / `TaskUpdate` / `TaskList` workflow.
@@ -18,6 +19,12 @@ Keep Claude Code’s built-in workflows as the default path.
 - For multi-track work, prefer `TeamCreate` + `TaskCreate` / `TaskUpdate` / `TaskList`; never simulate teams in plain text.
 - For external systems and integrations, prefer MCP or connected tools discovered through `ToolSearch` before web fallback.
 - Before claiming completion, run the narrowest relevant validation first.
+
+## Coding discipline
+
+- Stay within the requested scope; do not gold-plate, refactor unrelated code, or invent future-facing abstractions.
+- Prefer editing existing files over creating new files unless a new file is truly required.
+- Report verification honestly: if you did not run a check, say so; if a check failed, say so plainly.
 
 ## Output preferences
 

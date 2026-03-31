@@ -43,32 +43,52 @@ export function preferredModelForAgent(input, config) {
   }
 
   const agentType = canonicalAgentType(input);
+  const teamName = String(input?.team_name || '').trim();
+  const hasTeamName = Boolean(teamName);
 
   if (agentType === 'claude-code-guide') {
-    return config.guideModel || config.primaryModel || config.subagentModel;
+    return config.guideModel || config.sessionModel || config.primaryModel || '';
   }
 
   if (agentType === 'Explore') {
-    return config.exploreModel || config.subagentModel || config.primaryModel;
+    return config.exploreModel || config.sessionModel || config.subagentModel || config.primaryModel || '';
   }
 
-  if (agentType === 'Plan') {
-    return config.planModel || config.subagentModel || config.primaryModel;
+  if (agentType === 'Plan' && config.explicitPlanModel) {
+    return config.planModel || '';
+  }
+
+  if (agentType === 'general-purpose' && hasTeamName) {
+    if (!config.explicitTeamModel && !config.explicitSubagentModel) {
+      return '';
+    }
+
+    return config.teamModel || config.subagentModel || config.generalModel || config.primaryModel || '';
   }
 
   if (agentType === 'general-purpose') {
-    return input.team_name
-      ? config.teamModel || config.generalModel || config.subagentModel || config.primaryModel
-      : config.generalModel || config.subagentModel || config.primaryModel;
+    if (!config.explicitGeneralModel && !config.explicitSubagentModel) {
+      return '';
+    }
+
+    return config.generalModel || config.subagentModel || config.primaryModel || '';
   }
 
-  if (input.team_name) {
-    return config.teamModel || config.subagentModel || config.primaryModel;
+  if (hasTeamName) {
+    if (!config.explicitTeamModel && !config.explicitSubagentModel) {
+      return '';
+    }
+
+    return config.teamModel || config.subagentModel || config.generalModel || config.primaryModel || '';
   }
 
   if (!agentType) {
-    return config.subagentModel || config.primaryModel;
+    return config.explicitSubagentModel ? config.subagentModel || '' : '';
   }
 
-  return config.subagentModel || config.primaryModel;
+  if (config.explicitSubagentModel) {
+    return config.subagentModel || '';
+  }
+
+  return '';
 }

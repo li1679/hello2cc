@@ -1,6 +1,4 @@
-export const DEFAULT_PRIMARY_MODEL = 'cc-gpt-5.4';
-export const DEFAULT_LIGHTWEIGHT_MODEL = 'cc-gpt-5.3-codex-medium';
-export const DEFAULT_MANAGED_OUTPUT_STYLE = 'hello2cc Native';
+export const FORCED_OUTPUT_STYLE_NAME = 'hello2cc:hello2cc Native';
 
 export function envValue(name) {
   return String(process.env[name] || '').trim();
@@ -18,14 +16,6 @@ export function configuredMirrorSessionModel() {
   return pluginOption('mirror_session_model') !== 'false';
 }
 
-export function configuredOutputStyleBootstrapPolicy() {
-  return pluginOption('bootstrap_output_style') || 'user-if-unset';
-}
-
-export function configuredManagedOutputStyle() {
-  return pluginOption('managed_output_style') || DEFAULT_MANAGED_OUTPUT_STYLE;
-}
-
 function mirroredSessionModel(sessionContext) {
   if (!configuredMirrorSessionModel()) return '';
 
@@ -38,10 +28,22 @@ function mirroredSessionModel(sessionContext) {
 
 export function configuredModels(sessionContext = {}) {
   const sessionModel = mirroredSessionModel(sessionContext);
-  const primaryModel = pluginOption('primary_model') || sessionModel || DEFAULT_PRIMARY_MODEL;
+  const primaryModelOption = pluginOption('primary_model');
+  const subagentModelOption = pluginOption('subagent_model');
+  const guideModelOption = pluginOption('guide_model');
+  const exploreModelOption = pluginOption('explore_model');
+  const planModelOption = pluginOption('plan_model');
+  const generalModelOption = pluginOption('general_model');
+  const teamModelOption = pluginOption('team_model');
+
+  const primaryModel = primaryModelOption || sessionModel || '';
   const subagentFallback = envValue('CLAUDE_CODE_SUBAGENT_MODEL');
-  const subagentModel = pluginOption('subagent_model') || subagentFallback || sessionModel || primaryModel;
-  const explicitExploreModel = pluginOption('explore_model');
+  const subagentModel = subagentModelOption || subagentFallback || sessionModel || primaryModel || '';
+  const guideModel = guideModelOption || sessionModel || primaryModel || '';
+  const exploreModel = exploreModelOption || sessionModel || subagentModel || primaryModel || '';
+  const planModel = planModelOption || primaryModel || sessionModel || subagentModel || '';
+  const generalModel = generalModelOption || primaryModel || subagentModel || sessionModel || '';
+  const teamModel = teamModelOption || subagentModel || generalModel || primaryModel || sessionModel || '';
 
   return {
     routingPolicy: configuredPolicy(),
@@ -49,10 +51,17 @@ export function configuredModels(sessionContext = {}) {
     sessionModel,
     primaryModel,
     subagentModel,
-    guideModel: pluginOption('guide_model') || primaryModel,
-    exploreModel: explicitExploreModel || sessionModel || DEFAULT_LIGHTWEIGHT_MODEL,
-    planModel: pluginOption('plan_model') || primaryModel,
-    generalModel: pluginOption('general_model') || primaryModel,
-    teamModel: pluginOption('team_model') || subagentModel,
+    guideModel,
+    exploreModel,
+    planModel,
+    generalModel,
+    teamModel,
+    explicitPrimaryModel: Boolean(primaryModelOption),
+    explicitSubagentModel: Boolean(subagentModelOption || subagentFallback),
+    explicitGuideModel: Boolean(guideModelOption),
+    explicitExploreModel: Boolean(exploreModelOption),
+    explicitPlanModel: Boolean(planModelOption),
+    explicitGeneralModel: Boolean(generalModelOption),
+    explicitTeamModel: Boolean(teamModelOption),
   };
 }

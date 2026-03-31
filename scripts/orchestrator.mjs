@@ -9,8 +9,12 @@ import {
   suppressHook,
 } from './lib/hook-io.mjs';
 import { buildRouteSteps, buildSessionStartContext, extractPromptText } from './lib/native-context.mjs';
-import { ensureManagedOutputStyle } from './lib/output-style-bootstrap.mjs';
-import { rememberSessionContext, readSessionContext } from './lib/session-state.mjs';
+import {
+  clearAllSessionContexts,
+  clearSessionContext,
+  rememberSessionContext,
+  readSessionContext,
+} from './lib/session-state.mjs';
 import { isSubagentPrompt, startsWithExplicitCommand } from './lib/prompt-signals.mjs';
 
 const cmd = process.argv[2] || '';
@@ -26,7 +30,6 @@ async function cmdSessionStart() {
   const payload = readStdinJson('orchestrator.mjs');
   const sessionContext = currentSessionContext(payload);
 
-  ensureManagedOutputStyle(process.cwd());
   suppressHook('SessionStart', buildSessionStartContext(sessionContext));
 }
 
@@ -74,6 +77,20 @@ async function cmdPreAgentModel() {
   );
 }
 
+async function cmdConfigChange() {
+  const payload = readStdinJson('orchestrator.mjs');
+  const source = String(payload?.source || '').trim();
+  const sessionId = String(payload?.session_id || '').trim();
+
+  if (source === 'user_settings' || source === 'policy_settings') {
+    clearAllSessionContexts();
+  } else if (sessionId) {
+    clearSessionContext(sessionId);
+  }
+
+  emptySuppress();
+}
+
 async function main() {
   switch (cmd) {
     case 'session-start':
@@ -84,6 +101,9 @@ async function main() {
       break;
     case 'pre-agent-model':
       await cmdPreAgentModel();
+      break;
+    case 'config-change':
+      await cmdConfigChange();
       break;
     default:
       process.stderr.write(`orchestrator.mjs: unknown command "${cmd}"\n`);

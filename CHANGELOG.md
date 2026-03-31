@@ -1,9 +1,19 @@
 # Changelog
 
+## 0.0.9 - 2026-03-31
+
+- Shortened the default plugin main-agent runtime id from `hello2cc:hello2cc-native-main` to `hello2cc:main`, reducing namespace noise while preserving the same native-first behavior
+- Switched the plugin default agent setting to the actual namespaced runtime agent id `hello2cc:main`, matching Claude Code's plugin agent loader
+- Switched the plugin output style to Claude Code's official `force-for-plugin` path so the native-first style is applied without mutating user `settings.json`
+- Removed automatic user-settings output-style bootstrapping and the related runtime script in favor of the host-supported plugin output-style mechanism
+- Narrowed `Agent.model` injection to the places that truly need correction (`Claude Code Guide`, `Explore`, and explicit override cases), preserving Claude Code's native inherit behavior for `Plan`, `general-purpose`, and custom agents by default
+- Added `ConfigChange` handling that clears cached session model state so config swaps do not leave stale session-model mirroring behind
+- Updated validation, unit tests, and real-session regression checks for namespaced plugin agents and forced plugin output styles
+
 ## 0.0.7 - 2026-03-31
 
-- Added a default plugin `settings.json` that activates `hello2cc-native-main` as the main-thread agent, using `model: inherit` for a more silent and native-feeling baseline
-- Added `agents/hello2cc-native-main.md` so the main thread gets stronger native-first routing, ToolSearch-first posture, and table-friendly output guidance without relying solely on output styles
+- Added a default plugin `settings.json` that activates `main` as the main-thread agent, using `model: inherit` for a more silent and native-feeling baseline
+- Added `agents/main.md` so the main thread gets stronger native-first routing, ToolSearch-first posture, and table-friendly output guidance without relying solely on output styles
 - Added transcript-based session context discovery so native `Agent.model` injection can recover the active session model alias from real Claude Code transcripts when hook payloads do not expose it directly
 - Expanded regression coverage to validate transcript-driven model mirroring and to ensure the packaged plugin exports the new default main agent
 

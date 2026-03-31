@@ -1,4 +1,4 @@
-import { configuredManagedOutputStyle, configuredModels, configuredOutputStyleBootstrapPolicy } from './config.mjs';
+import { FORCED_OUTPUT_STYLE_NAME, configuredModels } from './config.mjs';
 import { classifyPrompt } from './prompt-signals.mjs';
 
 function flattenPromptValue(value, seen = new WeakSet()) {
@@ -47,19 +47,22 @@ export function extractPromptText(payload) {
 function buildModelPolicyLines(config) {
   if (config.routingPolicy === 'prompt-only') return [];
 
+  const renderModel = (value, note = '') =>
+    value ? `\`${value}\`${note ? ` ${note}` : ''}` : '`(preserve Claude Code native inherit/session behavior)`';
+
   const lines = [
     '## Native Agent model policy',
     `- routing_policy: \`${config.routingPolicy}\``,
     `- mirror_session_model: \`${config.mirrorSessionModel}\``,
     `- session_model: \`${config.sessionModel || '(none detected yet)'}\``,
-    `- primary_model: \`${config.primaryModel}\``,
-    `- subagent_model: \`${config.subagentModel}\``,
-    `- guide_model: \`${config.guideModel}\``,
-    `- explore_model: \`${config.exploreModel}\``,
-    `- plan_model: \`${config.planModel}\``,
-    `- general_model: \`${config.generalModel}\``,
-    `- team_model: \`${config.teamModel}\``,
-    '- If the current session has a model alias and `mirror_session_model` is enabled, hello2cc mirrors that alias into native `Agent.model` when `model` is omitted.',
+    `- primary_model: ${renderModel(config.primaryModel, config.explicitPrimaryModel ? '(explicit)' : '')}`,
+    `- subagent_model: ${renderModel(config.subagentModel, config.explicitSubagentModel ? '(explicit or env)' : '')}`,
+    `- guide_model: ${renderModel(config.guideModel, config.explicitGuideModel ? '(explicit)' : '(defaults to current session for Claude Code Guide)')}`,
+    `- explore_model: ${renderModel(config.exploreModel, config.explicitExploreModel ? '(explicit)' : '(defaults to current session for Explore)')}`,
+    `- plan_model: ${renderModel(config.planModel, config.explicitPlanModel ? '(explicit override)' : '')}`,
+    `- general_model: ${renderModel(config.generalModel, config.explicitGeneralModel ? '(explicit override)' : '')}`,
+    `- team_model: ${renderModel(config.teamModel, config.explicitTeamModel ? '(explicit override)' : '')}`,
+    '- hello2cc only injects `Agent.model` when the host would otherwise fall back to a non-native default (for example `Claude Code Guide` / `Explore`) or when you explicitly configured an override.',
     '- If a native `Agent` call already sets `model`, hello2cc does not override it.',
   ];
 
@@ -88,14 +91,12 @@ function buildTeamStep(signals) {
 
 export function buildSessionStartContext(sessionContext = {}) {
   const config = configuredModels(sessionContext);
-  const managedOutputStyle = configuredManagedOutputStyle();
-  const outputStylePolicy = configuredOutputStyleBootstrapPolicy();
 
   return [
     '# hello2cc',
     '',
     'hello2cc is a thin, native-first Claude Code plugin for GPT and other third-party models routed through Claude Code.',
-    'Its job is to preserve Claude Code’s built-in workflows with silent model injection, current-model mirroring, and optional persistent response shaping.',
+    'Its job is to preserve Claude Code’s built-in workflows with a namespaced default main agent, minimal native-agent model injection, current-session mirroring, and a forced plugin output style.',
     '',
     '## Default posture',
     '- Trivial, low-risk edits: do them directly.',
@@ -116,10 +117,10 @@ export function buildSessionStartContext(sessionContext = {}) {
     '- `General-Purpose` (internal id `general-purpose`)',
     '- `Claude Code Guide` (internal id `claude-code-guide`)',
     '',
-    '## Output style bootstrap',
-    `- bootstrap_output_style: \`${outputStylePolicy}\``,
-    `- managed_output_style: \`${managedOutputStyle}\``,
-    '- hello2cc may seed the user-level `outputStyle` once per plugin version, but the current session still follows the style that was active when the session started.',
+    '## Plugin output style',
+    `- force-for-plugin output style: \`${FORCED_OUTPUT_STYLE_NAME}\``,
+    '- On Claude Code builds that support plugin output-style forcing, hello2cc applies its thin native-first style without mutating user settings files.',
+    '- The style is intentionally thin: keep Claude Code native behavior, favor concise structured output, and use tables where they improve scanability.',
     '',
     ...buildModelPolicyLines(config),
   ].join('\n');
@@ -176,7 +177,7 @@ export function buildRouteSteps(prompt, sessionContext = {}) {
   }
 
   if (config.routingPolicy !== 'prompt-only') {
-    steps.push('如果原生 `Agent` / team teammate 调用漏掉 `model`，hello2cc 会优先镜像当前会话模型别名；无会话别名时再按插件配置补齐。显式传入的 `model` 优先。');
+    steps.push('如果原生 `Agent` 调用命中了 `Claude Code Guide` / `Explore` 等非原生默认模型路径，hello2cc 会优先镜像当前会话模型别名；只有显式配置了覆盖项时才会扩大注入范围。显式传入的 `model` 永远优先。');
   }
 
   if (steps.length === 0) return '';

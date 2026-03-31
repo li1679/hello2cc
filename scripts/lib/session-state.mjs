@@ -24,6 +24,23 @@ export function readSessionContext(sessionId) {
   return sessions[key] || {};
 }
 
+export function clearSessionContext(sessionId) {
+  const key = normalizeSessionId(sessionId);
+  if (!key) return false;
+
+  const sessions = readPluginDataJson(SESSION_STATE_PATH, {});
+  if (!(key in sessions)) return false;
+
+  const nextState = { ...sessions };
+  delete nextState[key];
+  writePluginDataJson(SESSION_STATE_PATH, compactEntries(nextState));
+  return true;
+}
+
+export function clearAllSessionContexts() {
+  writePluginDataJson(SESSION_STATE_PATH, {});
+}
+
 export function sessionContextFromPayload(payload = {}) {
   const sessionId = normalizeSessionId(payload?.session_id);
 

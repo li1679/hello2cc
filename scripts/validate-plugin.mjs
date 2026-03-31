@@ -132,6 +132,13 @@ function validateHooks() {
   } else {
     ok('hooks Agent pretool injection');
   }
+
+  const configChange = hooks.hooks.ConfigChange;
+  if (!Array.isArray(configChange) || configChange.length === 0) {
+    fail('hooks.json should define ConfigChange hooks');
+  } else {
+    ok('hooks ConfigChange coverage');
+  }
 }
 
 function validateAgents() {
@@ -139,13 +146,13 @@ function validateAgents() {
   if (!existsSync(agentsPath)) {
     fail('agents directory should exist to provide the default main-thread agent');
   } else {
-    const mainAgentPath = join(agentsPath, 'hello2cc-native-main.md');
+    const mainAgentPath = join(agentsPath, 'main.md');
     if (!existsSync(mainAgentPath)) {
-      fail('missing agents/hello2cc-native-main.md');
+      fail('missing agents/main.md');
     } else {
       const text = readFileSync(mainAgentPath, 'utf8');
-      if (!/name:\s*hello2cc-native-main/m.test(text) || !/model:\s*inherit/m.test(text)) {
-        fail('hello2cc native main agent should declare name and model: inherit');
+      if (!/name:\s*main/m.test(text) || !/model:\s*inherit/m.test(text)) {
+        fail('hello2cc main agent should declare name and model: inherit');
       } else {
         ok('native main agent');
       }
@@ -167,8 +174,8 @@ function validateAgents() {
   const settings = readJson(settingsPath);
   if (!settings) return;
 
-  if (settings.agent !== 'hello2cc-native-main') {
-    fail('settings.json should activate agent hello2cc-native-main');
+  if (settings.agent !== 'hello2cc:main') {
+    fail('settings.json should activate namespaced agent hello2cc:main');
   } else {
     ok('plugin default agent setting');
   }
@@ -205,6 +212,12 @@ function validateOutputStyles() {
   } else {
     ok('output style frontmatter');
   }
+
+  if (!/^force-for-plugin:\s*true$/m.test(frontmatter)) {
+    fail('output style should enable force-for-plugin');
+  } else {
+    ok('output style force-for-plugin');
+  }
 }
 
 function validateNativeFirstRouting() {
@@ -229,7 +242,6 @@ function validateLifecycleScripts() {
     join(root, 'scripts', 'task-lifecycle.mjs'),
     join(root, 'scripts', 'lib', 'hook-io.mjs'),
     join(root, 'scripts', 'lib', 'native-context.mjs'),
-    join(root, 'scripts', 'lib', 'output-style-bootstrap.mjs'),
     join(root, 'scripts', 'lib', 'plugin-data.mjs'),
     join(root, 'scripts', 'lib', 'plugin-meta.mjs'),
     join(root, 'scripts', 'lib', 'session-state.mjs'),

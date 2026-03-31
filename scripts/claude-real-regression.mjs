@@ -101,13 +101,23 @@ function assertPluginCacheShape(pluginPath, name) {
   }
 
   const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-  if (settings.agent !== 'hello2cc-native-main') {
-    fail(`real-session case "${name}" plugin settings did not activate hello2cc-native-main`);
+  if (settings.agent !== 'hello2cc:main') {
+    fail(`real-session case "${name}" plugin settings did not activate the namespaced hello2cc main agent`);
   }
 
-  const agentPath = join(pluginPath, 'agents', 'hello2cc-native-main.md');
+  const agentPath = join(pluginPath, 'agents', 'main.md');
   if (!existsSync(agentPath)) {
     fail(`real-session case "${name}" missing hello2cc native main agent`);
+  }
+
+  const outputStylePath = join(pluginPath, 'output-styles', 'hello2cc-native.md');
+  if (!existsSync(outputStylePath)) {
+    fail(`real-session case "${name}" missing hello2cc native output style`);
+  }
+
+  const outputStyleText = readFileSync(outputStylePath, 'utf8');
+  if (!/force-for-plugin:\s*true/m.test(outputStyleText)) {
+    fail(`real-session case "${name}" output style is not force-for-plugin`);
   }
 }
 
@@ -158,6 +168,10 @@ function runCase(name, prompt, sessionExpectations) {
     }
   }
 
+  if (!Array.isArray(initLine.agents) || !initLine.agents.includes('hello2cc:main')) {
+    fail(`real-session case "${name}" missing namespaced hello2cc main agent`);
+  }
+
   assertPluginCacheShape(getHello2ccPluginPath(initLine), name);
 
   const contexts = lines
@@ -182,12 +196,12 @@ runCase('baseline', 'Reply with exactly OK.', [
   'ToolSearch',
   'General-Purpose',
   'TeamCreate',
-  'MCP',
+  'force-for-plugin',
 ]);
 runCase('repeat', 'Reply with exactly STILL_OK.', [
   'Claude Code Guide',
   'ToolSearch',
   'General-Purpose',
   'TeamCreate',
-  'MCP',
+  'force-for-plugin',
 ]);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -54,7 +54,7 @@ test('session-start stays native-first and skill-free', () => {
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /ToolSearch/);
-  assert.match(context, /Output style bootstrap/);
+  assert.match(context, /force-for-plugin/);
   assert.match(context, /mirror_session_model/);
   assert.doesNotMatch(context, /Skill\(/);
   assert.doesNotMatch(context, /skills?/i);
@@ -168,8 +168,13 @@ test('pre-agent-model injects guide model using official permission fields', () 
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'cc-gpt-5.4');
 });
 
-test('pre-agent-model injects lightweight explore model', () => {
+test('pre-agent-model mirrors the current session model for Explore by default', () => {
   const env = isolatedEnv();
+  run('session-start', {
+    session_id: 'explore-model',
+    model: 'opus',
+  }, env);
+
   const output = run(
     'pre-agent-model',
     {
@@ -179,17 +184,28 @@ test('pre-agent-model injects lightweight explore model', () => {
         subagent_type: 'Explore',
       },
     },
-    {
-      ...env,
-      CLAUDE_PLUGIN_OPTION_EXPLORE_MODEL: 'cc-gpt-5.3-codex-medium',
-    },
+    env,
   );
 
-  assert.equal(output.hookSpecificOutput.updatedInput.model, 'cc-gpt-5.3-codex-medium');
+  assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
 });
 
-test('pre-agent-model injects team model when only team_name is present', () => {
+test('pre-agent-model only injects team model when explicitly configured', () => {
   const env = isolatedEnv();
+  const nativeOutput = run(
+    'pre-agent-model',
+    {
+      session_id: 'team-model-native',
+      tool_name: 'Agent',
+      tool_input: {
+        team_name: 'delivery-squad',
+      },
+    },
+    env,
+  );
+
+  assert.deepEqual(nativeOutput, { suppressOutput: true });
+
   const output = run(
     'pre-agent-model',
     {
@@ -222,7 +238,7 @@ test('pre-agent-model respects explicit model input', () => {
   assert.deepEqual(output, { suppressOutput: true });
 });
 
-test('pre-agent-model mirrors the current session model alias by default', () => {
+test('pre-agent-model mirrors the current session model alias for Claude Code Guide by default', () => {
   const env = isolatedEnv();
 
   run('session-start', {
@@ -234,19 +250,50 @@ test('pre-agent-model mirrors the current session model alias by default', () =>
     session_id: 'mirror-session',
     tool_name: 'Agent',
     tool_input: {
-      subagent_type: 'Plan',
+      subagent_type: 'claude-code-guide',
     },
   }, env);
 
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
 });
 
-test('pre-agent-model can discover the current session model from transcript_path', () => {
+test('pre-agent-model preserves native Plan inherit behavior unless explicitly overridden', () => {
+  const env = isolatedEnv();
+  run('session-start', {
+    session_id: 'plan-inherit',
+    model: 'opus',
+  }, env);
+
+  const nativeOutput = run('pre-agent-model', {
+    session_id: 'plan-inherit',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'Plan',
+    },
+  }, env);
+
+  assert.deepEqual(nativeOutput, { suppressOutput: true });
+
+  const overriddenOutput = run('pre-agent-model', {
+    session_id: 'plan-inherit',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'Plan',
+    },
+  }, {
+    ...env,
+    CLAUDE_PLUGIN_OPTION_PLAN_MODEL: 'cc-gpt-5.4',
+  });
+
+  assert.equal(overriddenOutput.hookSpecificOutput.updatedInput.model, 'cc-gpt-5.4');
+});
+
+test('pre-agent-model can discover the current session model from transcript_path for Explore', () => {
   const env = isolatedEnv();
   const sessionId = 'transcript-model';
   const transcriptPath = writeTranscript(env.HOME, sessionId, {
     model: 'opus',
-    output_style: 'hello2cc Native',
+    output_style: 'hello2cc:hello2cc Native',
   });
 
   const output = run('pre-agent-model', {
@@ -254,22 +301,31 @@ test('pre-agent-model can discover the current session model from transcript_pat
     transcript_path: transcriptPath,
     tool_name: 'Agent',
     tool_input: {
-      subagent_type: 'Plan',
+      subagent_type: 'Explore',
     },
   }, env);
 
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
 });
 
-test('session-start bootstraps managed output style into user settings once', () => {
+test('config-change clears cached session context so stale models are not reused', () => {
   const env = isolatedEnv();
   run('session-start', {
-    session_id: 'bootstrap-style',
+    session_id: 'config-change',
     model: 'opus',
   }, env);
 
-  const settingsPath = join(env.HOME, '.claude', 'settings.json');
-  const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  const cachePath = join(env.CLAUDE_PLUGIN_DATA, 'runtime', 'session-context.json');
+  assert.equal(existsSync(cachePath), true);
 
-  assert.equal(settings.outputStyle, 'hello2cc Native');
+  const output = run('config-change', {
+    session_id: 'config-change',
+    source: 'project_settings',
+    file_path: join(env.HOME, '.claude', 'settings.json'),
+  }, env);
+
+  assert.deepEqual(output, { suppressOutput: true });
+
+  const cached = JSON.parse(readFileSync(cachePath, 'utf8'));
+  assert.equal(cached['config-change'], undefined);
 });
