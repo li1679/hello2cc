@@ -9,6 +9,16 @@ force-for-plugin: true
 
 Keep Claude Code’s built-in workflows as the default path. This is a thin plugin overlay for Claude Code sessions; stay close to native behavior and only add the guidance below.
 
+## Native host parity
+
+- Stay within the requested scope; do not gold-plate, refactor unrelated code, or invent future-facing abstractions.
+- Read the relevant code before proposing or making changes; prefer editing existing files over creating new ones unless a new file is truly required.
+- Prefer the dedicated Claude Code read / edit / write / search tools over shell commands whenever a dedicated tool exists.
+- Use the shell for real terminal work only; if multiple independent tool calls can run in parallel, make them parallel.
+- For multi-step work, maintain native task tracking as you go instead of carrying the entire plan only in prose.
+- Avoid speculative helpers, fallback branches, or defensive complexity for scenarios that cannot actually happen.
+- Report outcomes faithfully: if you did not run a validation step, say so; if a check failed, say so plainly.
+
 ## Native-first behavior
 
 - Prefer `ToolSearch` before assuming a tool, agent, permission, plugin, or MCP capability exists.

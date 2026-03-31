@@ -47,6 +47,28 @@ function ensureClaudeCli() {
   }
 }
 
+function ensureHello2ccEnabled() {
+  const result = spawnClaude(['plugins', 'list']);
+  if (result.error || result.status !== 0) {
+    fail('unable to inspect installed Claude Code plugins');
+  }
+
+  const text = String(result.stdout || '');
+  const blockMatch = text.match(/❯\s+hello2cc@hello2cc-local[\s\S]*?(?=\n\s*❯|\s*$)/);
+  const pluginBlock = blockMatch?.[0] || '';
+
+  if (!pluginBlock) {
+    fail('hello2cc@hello2cc-local is not installed in the current Claude Code environment');
+  }
+
+  if (/Status:\s*✘\s*disabled/i.test(pluginBlock)) {
+    const enableResult = spawnClaude(['plugins', 'enable', 'hello2cc@hello2cc-local']);
+    if (enableResult.error || enableResult.status !== 0) {
+      fail('hello2cc is installed but disabled, and automatic enable failed');
+    }
+  }
+}
+
 function parseJsonLines(text) {
   return String(text || '')
     .split(/\r?\n/)
@@ -126,7 +148,8 @@ function runCase(name, prompt, sessionExpectations) {
   mkdirSync(debugDir, { recursive: true });
   const debugPath = join(debugDir, `hello2cc-real-${name}.jsonl`);
 
-  const result = spawnClaude([
+  const explicitModel = String(process.env.HELLO2CC_REAL_MODEL || '').trim();
+  const args = [
     '-p',
     '--verbose',
     '--output-format',
@@ -135,11 +158,26 @@ function runCase(name, prompt, sessionExpectations) {
     '0.20',
     '--debug-file',
     debugPath,
-    prompt,
-  ]);
+  ];
+
+  if (explicitModel) {
+    args.push('--model', explicitModel);
+  }
+
+  args.push(prompt);
+
+  const result = spawnClaude(args);
 
   if (result.error || result.status !== 0) {
     writeFileSync(debugPath, result.stdout || '', 'utf8');
+    const lines = parseJsonLines(result.stdout || '');
+    const invalidModelMessage = lines.find((line) => line.type === 'assistant' && typeof line.error === 'string' && line.error === 'invalid_request');
+    const invalidModelText = invalidModelMessage?.message?.content?.[0]?.text || '';
+
+    if (invalidModelText.includes('selected model')) {
+      fail(`real-session case "${name}" failed before hooks because Claude Code rejected the active model alias. Set HELLO2CC_REAL_MODEL to a valid Claude Code model alias or fix your current Claude Code model mapping first.`);
+    }
+
     fail(`real-session case "${name}" failed: ${result.stderr || result.error?.message || 'unknown error'}`);
   }
 
@@ -190,6 +228,7 @@ function runCase(name, prompt, sessionExpectations) {
 }
 
 ensureClaudeCli();
+ensureHello2ccEnabled();
 
 runCase('baseline', 'Reply with exactly OK.', [
   'Claude Code Guide',

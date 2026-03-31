@@ -324,6 +324,8 @@ export function classifyPrompt(prompt) {
   const plan = complex || hasAny(text, PLAN_PATTERNS);
   const verify = hasAny(text, VERIFY_PATTERNS);
   const swarm = hasAny(text, SWARM_PATTERNS);
+  const capabilityQuery = hasAny(text, TOOL_PATTERNS) || claudeGuide || mcp;
+  const codeResearch = research && !capabilityQuery;
 
   const tracks = [];
   if (frontend) tracks.push('frontend');
@@ -358,8 +360,10 @@ export function classifyPrompt(prompt) {
     mcp,
     frontend,
     backend,
+    capabilityQuery,
+    codeResearch,
     tracks,
     boundedImplementation,
-    toolSearchFirst: hasAny(text, TOOL_PATTERNS) || research || claudeGuide || mcp,
+    toolSearchFirst: capabilityQuery,
   };
 }

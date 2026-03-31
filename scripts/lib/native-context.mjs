@@ -69,6 +69,64 @@ function buildModelPolicyLines(config) {
   return ['', ...lines];
 }
 
+function envValue(name) {
+  return String(process.env[name] || '').trim();
+}
+
+function isAnthropicHost(url) {
+  const value = String(url || '').trim().toLowerCase();
+  if (!value) return true;
+
+  return value.includes('api.anthropic.com') || value.includes('api.claude.ai');
+}
+
+function toolSearchStatus(sessionContext = {}) {
+  if (typeof sessionContext?.toolSearchAvailable === 'boolean') {
+    return {
+      available: sessionContext.toolSearchAvailable,
+      observed: true,
+      source: 'session',
+    };
+  }
+
+  const enableToolSearch = envValue('ENABLE_TOOL_SEARCH');
+  const baseUrl = envValue('ANTHROPIC_BASE_URL');
+  const proxyLikely = Boolean(baseUrl) && !isAnthropicHost(baseUrl);
+
+  if (proxyLikely && !enableToolSearch) {
+    return {
+      available: false,
+      observed: false,
+      source: 'env',
+    };
+  }
+
+  return {
+    available: true,
+    observed: false,
+    source: proxyLikely ? 'env-optimistic' : 'unknown',
+  };
+}
+
+function buildToolSearchLines(sessionContext = {}) {
+  const status = toolSearchStatus(sessionContext);
+
+  if (status.available) {
+    return [
+      '## ToolSearch readiness',
+      '- hello2cc only promotes native `ToolSearch` when the Claude Code host actually exposes it for the current session.',
+      ...(status.observed ? ['- Current session status: `ToolSearch` is exposed by the host and can be used for capability discovery.'] : []),
+    ];
+  }
+
+  return [
+    '## ToolSearch readiness',
+    '- Current session status: native `ToolSearch` is not exposed, so hello2cc cannot force it at the plugin layer.',
+    '- If you use a third-party gateway or `ANTHROPIC_BASE_URL`, set `ENABLE_TOOL_SEARCH=true` (or `auto` / `auto:N`) in Claude Code settings or the launch environment.',
+    '- Your gateway must forward beta headers and `tool_reference` blocks; otherwise Claude Code will still suppress true ToolSearch / defer-loading behavior.',
+  ];
+}
+
 function quoteTrack(track) {
   return `\`${track}\``;
 }
@@ -100,15 +158,20 @@ export function buildSessionStartContext(sessionContext = {}) {
     '',
     '## Default posture',
     '- Trivial, low-risk edits: do them directly.',
+    '- Read relevant files before changing code, and prefer editing existing files over creating new ones unless a new file is truly required.',
+    '- Prefer dedicated Claude Code read / edit / write / search tools over shell commands whenever a dedicated tool exists.',
+    '- If independent tool calls do not depend on each other, run them in parallel.',
     '- If you are unsure whether a tool, plugin, agent type, permission, or MCP capability exists, run `ToolSearch` before guessing.',
     '- For Claude Code / Claude API / Agent SDK / hooks / MCP / settings questions, prefer native `Claude Code Guide` first and use official docs when needed.',
     '- For multi-step or cross-file work, prefer `EnterPlanMode()` or at least `TaskCreate` / `TaskUpdate` / `TaskList`.',
-    '- For open-ended repository exploration after a couple of searches, prefer native `Agent` with `Explore` or `Plan`.',
+    '- For repository understanding, start with native search / read tools and move to native `Agent` with `Explore` or `Plan` when the search surface becomes wider.',
     '- For bounded delegated implementation or verification, prefer native `Agent` with `General-Purpose` over ad-hoc text delegation.',
-    '- For parallelizable work, prefer native `Agent`; for sustained coordination, use `TeamCreate` plus `Task*`.',
+    '- For parallelizable work, prefer native `Agent`; for sustained coordination, use `TeamCreate` plus `Task*` rather than roleplaying a team in prose.',
     '- For external systems, connected tools, or MCP-backed data sources, run `ToolSearch` first and prefer native MCP tools before web fallback.',
     '- Never roleplay agents or teams in plain text when native tools exist.',
+    '- Avoid speculative abstractions, one-off helpers, or defensive complexity for scenarios that cannot actually happen.',
     '- Before claiming completion, run the narrowest relevant validation first and expand only if needed.',
+    '- Report validation honestly: if a check was not run or failed, say so plainly.',
     '- Prefer Markdown or aligned ASCII tables for comparisons, inventories, task matrices, validation summaries, and option trade-offs when they improve scanability.',
     '',
     '## Built-in agent types',
@@ -120,7 +183,9 @@ export function buildSessionStartContext(sessionContext = {}) {
     '## Plugin output style',
     `- force-for-plugin output style: \`${FORCED_OUTPUT_STYLE_NAME}\``,
     '- On Claude Code builds that support plugin output-style forcing, hello2cc applies its thin native-first style without mutating user settings files.',
-    '- The style is intentionally thin: keep Claude Code native behavior, favor concise structured output, and use tables where they improve scanability.',
+    '- The style is intentionally thin: keep Claude Code native behavior, restate only a minimal host-parity tasking subset, favor concise structured output, and use tables where they improve scanability.',
+    '',
+    ...buildToolSearchLines(sessionContext),
     '',
     ...buildModelPolicyLines(config),
   ].join('\n');
@@ -129,10 +194,13 @@ export function buildSessionStartContext(sessionContext = {}) {
 export function buildRouteSteps(prompt, sessionContext = {}) {
   const signals = classifyPrompt(prompt);
   const config = configuredModels(sessionContext);
+  const toolSearch = toolSearchStatus(sessionContext);
   const steps = [];
 
-  if (signals.toolSearchFirst) {
+  if (signals.toolSearchFirst && toolSearch.available) {
     steps.push('先 `ToolSearch` 确认可用工具、原生 agent 类型、插件能力、权限与 MCP 边界，不要凭记忆猜。');
+  } else if (signals.toolSearchFirst && !toolSearch.available) {
+    steps.push('当前会话没有暴露原生 `ToolSearch`：hello2cc 不能在插件层强行开启它。若你正通过第三方网关使用 Claude Code，请确认 `ENABLE_TOOL_SEARCH=true`，并确保网关透传 beta headers 与 `tool_reference` blocks。');
   }
 
   if (signals.mcp) {
@@ -141,8 +209,10 @@ export function buildRouteSteps(prompt, sessionContext = {}) {
 
   if (signals.claudeGuide) {
     steps.push('这是 Claude Code / Claude API / Agent SDK / hooks / settings / MCP 能力问题：优先调用原生 `Agent` 的 `Claude Code Guide`，必要时再抓取官方文档。');
+  } else if (signals.codeResearch) {
+    steps.push('这是代码库研究 / 定位任务：先用原生读写 / 搜索工具缩小范围，再在需要更大搜索面时转原生 `Explore` 或 `Plan`。');
   } else if (signals.research) {
-    steps.push('这是研究 / 对比 / 文档任务：先定向搜索，再在需要时转原生 `Explore` 或 `Plan`。');
+    steps.push('这是研究 / 对比 / 文档任务：先做定向搜索与证据收集，再在需要时转原生 `Explore` 或 `Plan`。');
   }
 
   if (signals.boundedImplementation) {
@@ -160,7 +230,7 @@ export function buildRouteSteps(prompt, sessionContext = {}) {
   }
 
   if (signals.swarm) {
-    steps.push('存在并行空间：优先并行调用原生 `Agent`；持续协作或共享状态时使用 `TeamCreate` + `Task*`，不要用文本模拟团队。');
+    steps.push('存在并行空间：先拆出独立 `Task*`，再并行调用原生 `Agent`；持续协作或共享状态时使用 `TeamCreate` + `Task*`，不要用文本模拟团队。');
   }
 
   const teamStep = buildTeamStep(signals);

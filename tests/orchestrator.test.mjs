@@ -54,10 +54,28 @@ test('session-start stays native-first and skill-free', () => {
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /ToolSearch/);
+  assert.match(context, /dedicated Claude Code read \/ edit \/ write \/ search tools/i);
+  assert.match(context, /Report validation honestly/i);
   assert.match(context, /force-for-plugin/);
   assert.match(context, /mirror_session_model/);
   assert.doesNotMatch(context, /Skill\(/);
   assert.doesNotMatch(context, /skills?/i);
+});
+
+test('session-start explains toolsearch gateway requirements when host has not exposed it', () => {
+  const env = isolatedEnv({
+    ANTHROPIC_BASE_URL: 'https://proxy.example.com/v1',
+    ENABLE_TOOL_SEARCH: '',
+  });
+  const output = run('session-start', {
+    session_id: 'session-no-toolsearch',
+    model: 'opus',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /ToolSearch readiness/);
+  assert.match(context, /cannot force it at the plugin layer/i);
+  assert.match(context, /ENABLE_TOOL_SEARCH=true/);
 });
 
 test('route promotes native guide flow without skill references', () => {
@@ -99,6 +117,19 @@ test('route extracts prompt text from structured payloads', () => {
   assert.match(context, /TaskCreate/);
 });
 
+test('route keeps codebase research on native search tools before agent escalation', () => {
+  const env = isolatedEnv();
+  const output = run('route', {
+    session_id: 'route-code-research',
+    prompt: 'Research where the router composes navigation links in this repo.',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /代码库研究/);
+  assert.match(context, /原生读写 \/ 搜索工具/);
+  assert.doesNotMatch(context, /先 `ToolSearch`/);
+});
+
 test('route promotes TeamCreate plus Task tracking for multi-track work', () => {
   const env = isolatedEnv();
   const output = run('route', {
@@ -134,6 +165,22 @@ test('route promotes ToolSearch for MCP-backed work', () => {
 
   assert.match(context, /ToolSearch/);
   assert.match(context, /MCP/);
+});
+
+test('route explains why toolsearch is unavailable on proxy sessions without the host gate enabled', () => {
+  const env = isolatedEnv({
+    ANTHROPIC_BASE_URL: 'https://proxy.example.com/v1',
+    ENABLE_TOOL_SEARCH: '',
+  });
+  const output = run('route', {
+    session_id: 'route-no-toolsearch',
+    prompt: 'Use ToolSearch to discover MCP tools and plugin capabilities.',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /当前会话没有暴露原生 `ToolSearch`/);
+  assert.match(context, /ENABLE_TOOL_SEARCH=true/);
+  assert.doesNotMatch(context, /先 `ToolSearch`/);
 });
 
 test('route skips explicit slash commands', () => {

@@ -237,6 +237,7 @@ function validateNativeFirstRouting() {
 
 function validateLifecycleScripts() {
   const scriptPaths = [
+    join(root, 'scripts', 'notify.mjs'),
     join(root, 'scripts', 'subagent-context.mjs'),
     join(root, 'scripts', 'subagent-stop.mjs'),
     join(root, 'scripts', 'task-lifecycle.mjs'),

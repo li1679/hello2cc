@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 - 2026-03-31
+
+- Rebuilt more of Claude Code's host-side tasking guidance into the forced plugin output style so third-party models keep stronger native habits even when plugin output styles replace part of the host prompt composition
+- Tightened the default native main-agent, route, and subagent overlays to prefer dedicated tools before shell, parallelize independent tool calls, and report validation status more honestly
+- Added ToolSearch readiness diagnostics so hello2cc now distinguishes between “prompt the model to use ToolSearch” and “the Claude Code host actually exposed ToolSearch for this session”, with explicit remediation for third-party gateway setups
+- Added a compatibility `scripts/notify.mjs` shim so stale legacy references such as `notify.mjs inject`, `notify.mjs route`, `notify.mjs stop`, and `codex-notify` no longer fail immediately when old local hook or notification-program paths still point at hello2cc
+- Improved transcript/session-state capture so hook guidance can remember observed tool and agent availability, not only the mirrored session model
+- Expanded validation, unit tests, and real-regression diagnostics, including clearer failure reporting when Claude Code rejects the currently mapped third-party model alias before plugin hooks can run
+
 ## 0.1.0 - 2026-03-31
 
 - Promoted hello2cc to the first `0.1.0` milestone to reflect that the core architecture is now stable enough for alpha-style iteration instead of `0.0.x` patch-only experimentation
