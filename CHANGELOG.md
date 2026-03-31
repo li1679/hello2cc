@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0 - 2026-03-31
+
+- Promoted hello2cc to the first `0.1.0` milestone to reflect that the core architecture is now stable enough for alpha-style iteration instead of `0.0.x` patch-only experimentation
+- Kept the official-plugin-path architecture introduced in recent releases: namespaced default main agent, `force-for-plugin` output style, minimal native-agent model injection, and real Claude Code regression coverage
+- Kept the clearer default main-agent runtime id `hello2cc:native`, which better communicates that hello2cc is active in native-first mode without locking the main session model
+
 ## 0.0.10 - 2026-03-31
 
 - Renamed the default plugin main-agent runtime id from `hello2cc:main` to `hello2cc:native`, making the active native-first role more self-explanatory while keeping the same `model: inherit` behavior

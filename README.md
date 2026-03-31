@@ -4,7 +4,7 @@
 
 它不负责接管 provider、网关或模型映射；它只负责在你已经用 `ccswitch`、provider profile、模型网关或原生槽位映射把第三方模型接进 Claude Code 之后，让这些模型在 Claude Code 里更接近原生 `Opus / Sonnet` 的使用体验。
 
-当前版本：`0.0.10`
+当前版本：`0.1.0`
 
 ---
 
@@ -31,7 +31,7 @@
 
 ---
 
-## 0.0.10 的核心方向
+## 0.1.0 的核心方向
 
 这次版本直接对齐了 Claude Code 最新插件机制里的两条官方路径：
 
@@ -119,7 +119,7 @@ hello2cc
 
 ### 2）output style：改为 `force-for-plugin`
 
-`0.0.10` 不再自动写用户级 `~/.claude/settings.json`。
+`0.1.0` 不再自动写用户级 `~/.claude/settings.json`。
 
 现在使用的是 Claude Code 插件 output style 的官方机制：
 
@@ -143,7 +143,7 @@ hello2cc 的 output style 被设计成**很薄的一层覆盖**：
 
 ### 3）Agent 模型注入：缩到最小必要范围
 
-`0.0.10` 不再对所有原生 `Agent` 调用大面积硬注入模型。
+`0.1.0` 不再对所有原生 `Agent` 调用大面积硬注入模型。
 
 现在只在这些场景优先修正：
 
