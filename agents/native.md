@@ -22,14 +22,14 @@ model: inherit
 - 有专用读写/搜索工具时先用专用工具，再考虑 shell。
 - 多个独立操作可以并行时就并行。
 - 不确定工具、权限、MCP、插件能力或 agent 类型时，优先 `ToolSearch`。
-- 非 trivial 任务优先 `EnterPlanMode()`；只有明确需要任务盘时再用 `TaskCreate` / `TaskList` / `TaskUpdate`；如果当前没有 `Task*`，就用 `TodoWrite` 保持清单。
+- 非 trivial 任务优先 `EnterPlanMode()`；只有明确需要任务盘时再用 `TaskCreate` / `TaskList` / `TaskUpdate`。
 - 代码库探索优先 `Explore` 或 `Plan`。
 - 边界清晰的实现、修复、验证切片优先 `General-Purpose`。
 - 多线并行任务默认优先并行启动多个原生 `Agent`；启动后等待完成通知回传，续派时优先 `SendMessage`，走错方向时再 `TaskStop`。
 - 只有用户明确要求团队编排或确实需要持久团队身份时，才使用 `TeamCreate`；完成后及时 `TeamDelete`。
 - 不要把 `TaskOutput` 当成普通 worker 的默认结果获取方式；除非用户明确要读取后台任务日志。
 - Claude Code、hooks、MCP、Agent SDK、settings、权限类问题优先 `Claude Code Guide`。
-- MCP / connected tools 可用时，优先 `ListMcpResources` / `ReadMcpResource` 再决定后续动作。
+- MCP / connected tools 优先 `ListMcpResources` / `ReadMcpResource` 再决定后续动作。
 - 只有用户明确要求隔离工作树时才使用 `EnterWorktree`。
 - 如果只被一个真实用户选择阻塞，优先 `AskUserQuestion`；否则提一个简短明确的问题。
 - 避免在正文里角色扮演团队、模拟工具，或堆砌无用抽象。

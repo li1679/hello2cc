@@ -214,6 +214,21 @@ function validateNoEmbeddedSkills() {
   ok('no embedded skills directory');
 }
 
+function validateNoLegacyCompat() {
+  const legacyCompatFiles = [
+    join(root, 'scripts', 'notify.mjs'),
+  ];
+
+  for (const legacyPath of legacyCompatFiles) {
+    if (existsSync(legacyPath)) {
+      fail(`${legacyPath.replace(`${root}\\`, '')} should not ship in the strict native-first release`);
+      return;
+    }
+  }
+
+  ok('no legacy compatibility shims');
+}
+
 function validateOutputStyles() {
   const outputStylePath = join(root, 'output-styles', 'hello2cc-native.md');
   if (!existsSync(outputStylePath)) {
@@ -266,7 +281,6 @@ function validateNativeFirstRouting() {
 
 function validateLifecycleScripts() {
   const scriptPaths = [
-    join(root, 'scripts', 'notify.mjs'),
     join(root, 'scripts', 'subagent-context.mjs'),
     join(root, 'scripts', 'subagent-stop.mjs'),
     join(root, 'scripts', 'task-lifecycle.mjs'),
@@ -274,7 +288,9 @@ function validateLifecycleScripts() {
     join(root, 'scripts', 'lib', 'native-context.mjs'),
     join(root, 'scripts', 'lib', 'plugin-data.mjs'),
     join(root, 'scripts', 'lib', 'plugin-meta.mjs'),
+    join(root, 'scripts', 'lib', 'route-guidance.mjs'),
     join(root, 'scripts', 'lib', 'session-state.mjs'),
+    join(root, 'scripts', 'lib', 'session-guidance.mjs'),
     join(root, 'scripts', 'lib', 'transcript-context.mjs'),
     join(root, 'scripts', 'lib', 'task-quality.mjs'),
     join(root, 'scripts', 'lib', 'subagent-quality.mjs'),
@@ -295,6 +311,7 @@ validatePluginManifest();
 validateHooks();
 validateAgents();
 validateNoEmbeddedSkills();
+validateNoLegacyCompat();
 validateOutputStyles();
 validateNativeFirstRouting();
 validateLifecycleScripts();

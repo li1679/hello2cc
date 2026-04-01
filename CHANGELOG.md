@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 - 2026-04-01
+
+- Removed the old `scripts/notify.mjs` compatibility shim and its tests so the public plugin no longer ships legacy notification / hook bridge baggage
+- Tightened the main agent, output style, and routing overlays toward a stricter native-first policy: no `TodoWrite` fallback wording, no web-fallback wording, and no capability-withdrawal phrasing in the model-facing guidance
+- Dropped transcript-level transport diagnostics from the model-facing prompt path so hello2cc no longer injects proxy / compatibility commentary into the active Claude Code session
+- Split the oversized native-context orchestration into focused guidance modules so the transport-safety logic stays maintainable while preserving the same exported plugin behavior
+
 ## 0.2.2 - 2026-04-01
 
 - Re-aligned hello2cc's multi-worker guidance with Claude Code's native worker flow: parallel work now prefers multiple `Agent` launches first instead of over-promoting `TeamCreate` for ordinary research / implement / verify turns

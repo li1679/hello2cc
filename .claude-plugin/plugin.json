@@ -1,7 +1,7 @@
 {
   "name": "hello2cc",
-  "version": "0.2.2",
-  "description": "Capability-aware, native-first Claude Code plugin that helps third-party models behave closer to native sessions with native tools, agents, tasks, teams, MCP resources, and concise structured output.",
+  "version": "0.2.3",
+  "description": "Silent, native-first Claude Code plugin that steers third-party models toward Claude-style native tools, agents, tasks, teams, MCP workflows, and concise output.",
   "author": {
     "name": "hello2cc"
   },

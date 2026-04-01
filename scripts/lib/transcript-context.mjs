@@ -45,9 +45,6 @@ function sessionSnapshotFromRecord(record) {
   };
 }
 
-/**
- * Extract the latest observable session context from a Claude Code transcript.
- */
 export function extractSessionContextFromTranscript(transcriptPath, sessionId = '') {
   const path = normalizePath(transcriptPath);
   if (!path || !existsSync(path)) return {};
@@ -66,7 +63,7 @@ export function extractSessionContextFromTranscript(transcriptPath, sessionId = 
       if (!isSessionSystemRecord(record, String(sessionId || '').trim())) continue;
 
       const snapshot = sessionSnapshotFromRecord(record);
-      if (!snapshot.mainModel && !snapshot.outputStyle) continue;
+      if (Object.keys(snapshot).length === 0) continue;
       best = {
         ...best,
         ...snapshot,
