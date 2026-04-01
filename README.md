@@ -4,7 +4,7 @@
 
 它不负责 provider、gateway、模型映射或账号权限；它负责的是：**当你已经把第三方模型接入 Claude Code 之后，让这些模型尽量像原生 Opus / Sonnet 一样使用 Claude Code。**
 
-当前版本：`0.2.3`
+当前版本：`0.2.4`
 
 ---
 
@@ -33,9 +33,9 @@
 
 ---
 
-## 0.2.3 的核心方向
+## 0.2.4 的核心方向
 
-`0.2.3` 的重点是在保持 native-first 的同时，进一步把 hello2cc 收紧到 strict-native 路线：
+`0.2.4` 延续 strict-native 路线，并重点补强真实会话回归链路的稳健性：
 
 - **能力感知优先**：先看当前会话真实暴露了哪些工具和 agent
 - **状态感知优先**：尽量依赖会话上下文、任务状态、团队状态，而不是靠大段关键词猜意图
@@ -47,6 +47,9 @@
 - **结果回传更原生**：普通 worker 默认等待完成通知回传，不把 `TaskOutput` 当成默认轮询方式
 - **strict-native 清理**：删除旧版通知 / hook 兼容桥，不再向模型注入兼容、降级、fallback 一类提示
 - **原生路径固定优先**：`ToolSearch`、`Claude Code Guide`、`EnterPlanMode()`、原生 worker / team / MCP 路径持续保持默认优先
+- **真实回归更稳**：本地真实回归现在可自动识别 `plugin` / `plugins` CLI 形式，Windows 缺少 `claude.ps1` 时也能继续走 PATH 中的 `claude`
+- **状态回滚更干净**：真实回归若临时启用了 `hello2cc`，结束后会恢复原启用状态，避免污染用户环境
+- **错误定位更清楚**：真实回归会优先保留原始 Claude CLI 失败原因，并在必要时附带 restore 失败信息
 
 这能明显降低：
 
@@ -256,6 +259,7 @@ npm run test:real
 - `npm test`：运行单元测试
 - `npm run check`：组合执行 `validate + test`
 - `npm run test:real`：调用本机 Claude Code CLI 做真实会话回归
+- `npm run test:real` 在新版中会尽量保持你原来的插件启用状态，不会因为临时回归而把 `hello2cc` 长久切成另一个状态
 
 如果真实回归失败，请优先检查：
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 - 2026-04-01
+
+- Hardened `scripts/claude-real-regression.mjs` so real-session checks now auto-detect both `plugin` and `plugins` Claude Code CLI forms instead of assuming only one command spelling
+- Added Windows fallback execution through PATH command resolution when `APPDATA\\npm\\claude.ps1` is missing, making local real-regression runs less fragile across shell and install layouts
+- Restored the original plugin enabled / disabled state after temporary real-regression enablement, so test runs no longer leave the user's Claude Code plugin state mutated
+- Preserved the original Claude CLI failure in real-regression output and appended restore failures when both happen, making debugging much clearer without reviving removed legacy compatibility files
+- Added focused automated coverage for missing Claude CLI, singular plugin command support, Windows/PATH fallback, and restore-error reporting
+
 ## 0.2.3 - 2026-04-01
 
 - Removed the old `scripts/notify.mjs` compatibility shim and its tests so the public plugin no longer ships legacy notification / hook bridge baggage
