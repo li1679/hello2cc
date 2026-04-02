@@ -9,6 +9,10 @@ function buildTaskTrackingStep() {
   return '该任务适合显式拆解：维护 `TaskCreate` / `TaskList` / `TaskUpdate`；更新前先 `TaskGet` 看当前状态，不要只在正文里口头列步骤。';
 }
 
+function formatNames(values = []) {
+  return values.map((value) => `\`${value}\``).join(', ');
+}
+
 function recommendedTrackLabels(signals) {
   if (signals.tracks?.length) return signals.tracks;
   if (signals.research && signals.verify) return ['research', 'verification'];
@@ -59,8 +63,10 @@ function buildResearchStep(signals) {
 function buildSkillWorkflowStep(signals, sessionContext = {}) {
   const skillToolAvailable = Boolean(sessionContext?.skillToolAvailable);
   const discoverSkillsAvailable = Boolean(sessionContext?.discoverSkillsAvailable);
+  const surfacedSkillNames = Array.isArray(sessionContext?.surfacedSkillNames) ? sessionContext.surfacedSkillNames.filter(Boolean) : [];
+  const loadedCommandNames = Array.isArray(sessionContext?.loadedCommandNames) ? sessionContext.loadedCommandNames.filter(Boolean) : [];
 
-  if (!skillToolAvailable && !discoverSkillsAvailable) {
+  if (!skillToolAvailable && !discoverSkillsAvailable && surfacedSkillNames.length === 0 && loadedCommandNames.length === 0) {
     return '';
   }
 
@@ -76,6 +82,14 @@ function buildSkillWorkflowStep(signals, sessionContext = {}) {
   }
 
   const lines = [];
+
+  if (loadedCommandNames.length) {
+    lines.push(`当前会话已加载过的 skill / workflow：${formatNames(loadedCommandNames)}。如果当前任务是在延续这些流程，直接沿着现有上下文继续，不要重复发现或重写。`);
+  }
+
+  if (surfacedSkillNames.length) {
+    lines.push(`当前会话已 surfaced 的 skills：${formatNames(surfacedSkillNames)}。如果其中有匹配项，优先直接调用对应 ` + '`Skill`' + '。');
+  }
 
   if (skillToolAvailable) {
     lines.push('如果当前回合已经出现 `Skills relevant to your task`、用户明确提到某个 skill / slash command / plugin workflow，或你已经知道有匹配的宿主 skill，就优先调用 `Skill`，不要绕过它重写同一套流程。');
@@ -188,7 +202,7 @@ export function buildRouteStepsFromSignals(signals, sessionContext = {}) {
   }
 
   return [
-    '# hello2cc native-first routing',
+    '# hello2cc host-surface routing',
     '',
     '按下面顺序优先决策：',
     '',

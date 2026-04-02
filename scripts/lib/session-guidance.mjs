@@ -13,6 +13,14 @@ function detectedAgents(sessionContext = {}) {
   return Array.isArray(sessionContext?.agentTypes) ? sessionContext.agentTypes.filter(Boolean) : [];
 }
 
+function surfacedSkills(sessionContext = {}) {
+  return Array.isArray(sessionContext?.surfacedSkillNames) ? sessionContext.surfacedSkillNames.filter(Boolean) : [];
+}
+
+function loadedCommands(sessionContext = {}) {
+  return Array.isArray(sessionContext?.loadedCommandNames) ? sessionContext.loadedCommandNames.filter(Boolean) : [];
+}
+
 function buildObservedSurfaceLines(sessionContext = {}) {
   const tools = detectedTools(sessionContext);
   const agents = detectedAgents(sessionContext);
@@ -83,8 +91,10 @@ function buildWorkingHabitLines() {
 function buildSkillWorkflowLines(sessionContext = {}) {
   const skillToolAvailable = Boolean(sessionContext?.skillToolAvailable);
   const discoverSkillsAvailable = Boolean(sessionContext?.discoverSkillsAvailable);
+  const surfaced = surfacedSkills(sessionContext);
+  const loaded = loadedCommands(sessionContext);
 
-  if (!skillToolAvailable && !discoverSkillsAvailable) {
+  if (!skillToolAvailable && !discoverSkillsAvailable && surfaced.length === 0 && loaded.length === 0) {
     return [];
   }
 
@@ -97,6 +107,14 @@ function buildSkillWorkflowLines(sessionContext = {}) {
 
   if (discoverSkillsAvailable) {
     lines.push('- 当前会话已暴露 `DiscoverSkills`；遇到中途转向、专门 workflow、插件化能力，或你怀疑已有现成 skill 但当前列表不够时，先发现再调用。');
+  }
+
+  if (surfaced.length) {
+    lines.push(`- 当前会话已 surfaced 的 skills：${formatNames(surfaced)}。如果其中已有匹配项，优先直接用它，而不是再重复探索或重写流程。`);
+  }
+
+  if (loaded.length) {
+    lines.push(`- 当前会话已加载过的 skill / workflow：${formatNames(loaded)}。如果你正在延续这些流程，直接沿着现有上下文继续，不要重复发现或重复加载。`);
   }
 
   if (skillToolAvailable && discoverSkillsAvailable) {

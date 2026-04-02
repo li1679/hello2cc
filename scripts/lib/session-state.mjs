@@ -74,10 +74,12 @@ export function rememberSessionContext(payload) {
   const outputStyle = String(context.outputStyle || '').trim();
   const toolNames = Array.isArray(context.toolNames) ? context.toolNames : [];
   const agentTypes = Array.isArray(context.agentTypes) ? context.agentTypes : [];
+  const surfacedSkillNames = Array.isArray(context.surfacedSkillNames) ? context.surfacedSkillNames : [];
+  const loadedCommandNames = Array.isArray(context.loadedCommandNames) ? context.loadedCommandNames : [];
   const teamName = String(context.teamName || '').trim();
   const agentName = String(context.agentName || '').trim();
 
-  if (!key || (!mainModel && !outputStyle && toolNames.length === 0 && agentTypes.length === 0 && !teamName && !agentName)) {
+  if (!key || (!mainModel && !outputStyle && toolNames.length === 0 && agentTypes.length === 0 && surfacedSkillNames.length === 0 && loadedCommandNames.length === 0 && !teamName && !agentName)) {
     return {};
   }
 
@@ -96,6 +98,8 @@ export function rememberSessionContext(payload) {
         agentTypes,
         ...deriveAgentCapabilities(agentTypes),
       } : {}),
+      ...(surfacedSkillNames.length ? { surfacedSkillNames } : {}),
+      ...(loadedCommandNames.length ? { loadedCommandNames } : {}),
       ...(teamName ? { teamName } : {}),
       ...(agentName ? { agentName } : {}),
       updatedAt: new Date().toISOString(),

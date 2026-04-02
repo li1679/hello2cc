@@ -6,6 +6,9 @@ import {
   normalizeToolNames,
 } from './session-capabilities.mjs';
 
+const COMMAND_NAME_PATTERN = /<command-name>(.*?)<\/command-name>/gi;
+const SKILL_DISCOVERY_HEADER = 'Skills relevant to your task:';
+
 function parseJsonLine(line) {
   try {
     return JSON.parse(line);
@@ -40,6 +43,78 @@ function isSessionRecord(record, sessionId) {
   return true;
 }
 
+function normalizeName(value) {
+  return String(value || '').trim().replace(/^\/+/, '');
+}
+
+function uniq(values) {
+  return [...new Set(values.map(normalizeName).filter(Boolean))];
+}
+
+function collectStrings(value, seen = new WeakSet()) {
+  if (typeof value === 'string') return [value];
+  if (!value || typeof value !== 'object') return [];
+  if (seen.has(value)) return [];
+
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectStrings(item, seen));
+  }
+
+  return Object.values(value).flatMap((item) => collectStrings(item, seen));
+}
+
+function extractCommandNames(text) {
+  return [...String(text || '').matchAll(COMMAND_NAME_PATTERN)]
+    .map((match) => normalizeName(match[1]))
+    .filter(Boolean);
+}
+
+function extractSkillNamesFromText(text) {
+  const normalized = String(text || '');
+  const markerIndex = normalized.indexOf(SKILL_DISCOVERY_HEADER);
+  if (markerIndex === -1) return [];
+
+  return normalized
+    .slice(markerIndex + SKILL_DISCOVERY_HEADER.length)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.replace(/^- /, '').split(':')[0])
+    .map(normalizeName)
+    .filter(Boolean);
+}
+
+function extractAttachments(record) {
+  const directAttachments = Array.isArray(record?.attachments) ? record.attachments : [];
+  const messageAttachments = Array.isArray(record?.message?.attachments) ? record.message.attachments : [];
+  const contentAttachments = Array.isArray(record?.message?.content)
+    ? record.message.content.filter((item) => item && typeof item === 'object' && 'type' in item)
+    : [];
+
+  return [...directAttachments, ...messageAttachments, ...contentAttachments];
+}
+
+function interactionSnapshotFromRecord(record) {
+  if (!record || typeof record !== 'object') return {};
+
+  const textBlocks = collectStrings(record);
+  const attachments = extractAttachments(record);
+  const surfacedSkillNames = uniq([
+    ...attachments
+      .filter((attachment) => attachment?.type === 'skill_discovery')
+      .flatMap((attachment) => Array.isArray(attachment.skills) ? attachment.skills.map((skill) => skill?.name) : []),
+    ...textBlocks.flatMap(extractSkillNamesFromText),
+  ]);
+  const loadedCommandNames = uniq(textBlocks.flatMap(extractCommandNames));
+
+  return {
+    ...(surfacedSkillNames.length ? { surfacedSkillNames } : {}),
+    ...(loadedCommandNames.length ? { loadedCommandNames } : {}),
+  };
+}
+
 function sessionSnapshotFromRecord(record) {
   if (!record || typeof record !== 'object') return {};
 
@@ -55,6 +130,7 @@ function sessionSnapshotFromRecord(record) {
     ...(agentTypes.length ? { agentTypes } : {}),
     ...(toolNames.length ? deriveToolCapabilities(toolNames) : {}),
     ...(agentTypes.length ? deriveAgentCapabilities(agentTypes) : {}),
+    ...interactionSnapshotFromRecord(record),
   };
 }
 
@@ -92,6 +168,14 @@ export function extractSessionContextFromTranscript(transcriptPath, sessionId = 
         best = {
           ...best,
           ...teamSnapshot,
+        };
+      }
+
+      const interactionSnapshot = interactionSnapshotFromRecord(record);
+      if (Object.keys(interactionSnapshot).length > 0) {
+        best = {
+          ...best,
+          ...interactionSnapshot,
         };
       }
 

@@ -227,6 +227,106 @@ test('route tells the model to prefer surfaced skills and DiscoverSkills for wor
   assert.match(context, /`ToolSearch` 主要用于工具 \/ MCP \/ 权限边界发现/);
 });
 
+test('session-start surfaces skill_discovery names from transcript context', () => {
+  const env = isolatedEnv();
+  const sessionId = 'session-surfaced-skills';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Skill', 'DiscoverSkills'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      message: {
+        attachments: [
+          {
+            type: 'skill_discovery',
+            skills: [
+              { name: 'brainstorm', description: 'Help ideate directions' },
+              { name: 'release', description: 'Ship and publish changes' },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run('session-start', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Skill', 'DiscoverSkills'],
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /当前会话已 surfaced 的 skills：`brainstorm`, `release`/);
+});
+
+test('route prefers already surfaced skills before broader discovery', () => {
+  const env = isolatedEnv();
+  const sessionId = 'route-surfaced-skills';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Skill', 'DiscoverSkills', 'ToolSearch'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: 'Skills relevant to your task:\n\n- brainstorm: Help ideate directions\n- release: Ship and publish changes\n\nThese skills encode project-specific conventions. Invoke via Skill(\"<name>\") for complete instructions.',
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run('route', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Skill', 'DiscoverSkills', 'ToolSearch'],
+    prompt: '帮我做一轮头脑风暴，看看接下来怎么推进',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /当前会话已 surfaced 的 skills：`brainstorm`, `release`/);
+  assert.match(context, /优先直接调用对应 `Skill`/);
+});
+
+test('route remembers already loaded skill workflows from command-name tags', () => {
+  const env = isolatedEnv();
+  const sessionId = 'route-loaded-skill';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Skill', 'DiscoverSkills'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '<command-name>brainstorm</command-name>\n<skill-format>true</skill-format>',
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run('route', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Skill', 'DiscoverSkills'],
+    prompt: '继续这个头脑风暴流程，收敛成三个备选方案',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /已加载过的 skill \/ workflow：`brainstorm`/);
+  assert.match(context, /不要重复发现或重写/);
+});
+
 test('route extracts prompt text from structured payloads', () => {
   const env = isolatedEnv();
   run('session-start', {

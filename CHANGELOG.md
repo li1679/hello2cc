@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.10 - 2026-04-02
+
+- Added transcript-based skill-surface awareness so hello2cc can now detect surfaced `skill_discovery` results and previously loaded skill/workflow command tags instead of reasoning only from coarse tool availability
+- Upgraded routing and session guidance to use those richer host signals: when matching surfaced skills already exist, hello2cc now prefers continuing or invoking them directly before falling back to broader discovery
+- Clarified the distinction between “already surfaced skills”, “already loaded workflows”, `DiscoverSkills`, and `ToolSearch`, so third-party models are steered by capability specificity instead of generic workflow keywords alone
+- Expanded regression coverage for transcript-derived surfaced skills and loaded skill/workflow continuity to keep the new host-surface behavior stable
+
 ## 0.2.9 - 2026-04-02
 
 - Corrected hello2cc's routing stance from overly narrow native-first bias to host-surface-first guidance: third-party models are now reminded to respect all host-exposed capability surfaces instead of over-preferring only built-in tools and agents
