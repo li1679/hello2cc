@@ -1,46 +1,77 @@
 # hello2cc
 
-`hello2cc` 是一个面向 Claude Code 的静默型、宿主能力优先插件。
+`hello2cc` 是一个面向 Claude Code 的静默型插件。
 
-它不负责 provider、gateway、账号权限或模型接入；它负责的是：
+它不负责接入模型、配置 provider、处理网关或替你开通权限；它负责的是另一层问题：
 
-**当你已经把外部模型接进 Claude Code 后，让它更容易发现、判断并正确使用 Claude Code 已经暴露出来的工具、Agent、Skill、workflow、MCP、计划与团队能力。**
+**当你已经把第三方模型接进 Claude Code 之后，让它更像原生 Opus 一样，去发现、判断并正确使用 Claude Code 当前真实暴露出来的工具、Agent、Skill、workflow、MCP、计划与团队能力。**
 
-当前版本：`0.2.10`
+当前版本：`0.3.0`
 
 ---
 
 ## 一句话理解
 
-如果你已经通过以下任一方式把模型接进 Claude Code：
+如果你已经通过下面任一方式把模型接进 Claude Code：
 
 - CCSwitch
 - provider profile
-- API gateway
+- API gateway / 反代
 - 原生槽位映射
+- 其他模型切换层（例如 helloswitch）
 
-那么 `hello2cc` 解决的是下一层问题：
+那么 `hello2cc` 解决的是：
 
-> **如何让这个模型在 Claude Code 里更自然地工作，而不是只“能连上”。**
+> **模型“能接入”之后，怎样在 Claude Code 里更自然、更准确地使用宿主能力，而不是只会聊天或只会绕路。**
+
+---
+
+## hello2cc 现在重点做什么
+
+| 方向 | 作用 |
+|---|---|
+| 更细 capability graph | 感知当前会话里真实暴露的 tools、agents、surfaced skills、已加载 workflows、deferred tools、MCP resources |
+| surfaced skill / workflow 连续体 | 识别已经 surfaced 的 skill、已经加载过的 slash command / skill 参数、已经出现过的 workflow |
+| agent subtype tool surface | 明确 `Explore`、`Plan`、`General-Purpose`、`Claude Code Guide` 各自适合做什么 |
+| specificity routing | 优先走更具体的宿主能力：已加载流程 → surfaced skill → `DiscoverSkills` → MCP resource → deferred tool → `ToolSearch` → 更宽 agent |
+| 原生感输出 | 维持 Claude Code 风格的简洁、行动优先、结果导向表达 |
+| 参数净化 | 继续处理 `Agent.model`、team 语义、worktree 语义等宿主敏感边界 |
 
 ---
 
 ## 它能带来什么
 
-| 方向 | 你能感受到的变化 |
+| 场景 | 你能感受到的变化 |
 |---|---|
-| 能力发现 | 更容易发现当前会话真实暴露的工具、Agent、Skill、workflow 与 MCP |
-| 原生工具使用 | 更主动使用 Claude Code 原生工具，而不是总想绕去别的路径 |
-| Skills / workflows | 不再系统性压制已暴露的 Skill / DiscoverSkills / 插件工作流 |
-| ToolSearch | 更自然地把 `ToolSearch` 作为能力确认入口 |
-| 规划与任务 | 非 trivial 任务更倾向先进入 `EnterPlanMode()`；只有真的需要任务盘时再使用 `Task*` |
-| 原生 Agent | 更自然地调用 `Explore`、`Plan`、`General-Purpose`、`Claude Code Guide` |
-| 多 worker 协作 | 普通并行任务优先并行多个原生 `Agent` worker，而不是轻易误进 team |
-| TeamCreate | 只有明确需要团队编排时才使用 `TeamCreate` / `TeamDelete` |
-| 用户交互 | 单一真实决策阻塞时，更自然地使用 `AskUserQuestion` |
-| MCP / connected tools | 更自然地优先 `ListMcpResources` / `ReadMcpResource` 与原生 MCP 路径 |
-| 输出风格 | 更接近 Claude Code 原生的简洁、行动优先、结构化表达 |
-| 语言跟随 | 中文会话更倾向持续中文输出，减少无故切到英文和元叙述 |
+| Skill / workflow | 不再系统性压制已 surfaced 的 skill、slash command 或 workflow |
+| 能力发现 | 更容易发现当前会话真实可用的宿主能力，而不是靠猜 |
+| MCP | 更倾向优先使用已知 MCP resource、`ListMcpResources`、`ReadMcpResource` |
+| ToolSearch | 更清楚地区分“已加载的 deferred tool”和“还需要 ToolSearch 加载的 deferred tool” |
+| 多 agent | 更清楚什么时候该用 `Explore`、`Plan`、`General-Purpose`、`Claude Code Guide` |
+| 计划与任务 | 非 trivial 任务更倾向先 `EnterPlanMode()`，只有真的需要任务盘时再进入 `Task*` |
+| 团队语义 | 普通并行 worker 不再轻易误入 `TeamCreate` / teammate 路径 |
+| 中文使用 | 中文会话更倾向持续中文输出，减少无故切英文和元叙述 |
+
+---
+
+## 它的路由优先级
+
+hello2cc 当前最核心的行为，就是把第三方模型往**更具体、离当前会话更近**的宿主能力上推：
+
+1. 已加载的 workflow / slash command / skill 连续体
+2. 已 surfaced 的 skill
+3. `DiscoverSkills`
+4. 已知的 MCP resource
+5. 已加载或已 surfaced 的 deferred tool
+6. `ToolSearch`
+7. 更宽的 `Agent` / `Plan`
+
+这意味着：
+
+- 如果当前会话已经加载过某个 workflow，就优先续跑它
+- 如果当前回合已经 surfaced 了匹配 skill，就优先直接 `Skill`
+- 如果已经知道具体 MCP resource，就优先直接读 resource，而不是重新泛搜一遍 MCP
+- 如果某个 deferred tool 已经通过 ToolSearch 加载过，就优先直接调用，不再重复 ToolSearch
 
 ---
 
@@ -48,12 +79,11 @@
 
 如果你符合下面任一场景，`hello2cc` 会比较有价值：
 
-- 你已经把外部模型映射进 Claude Code 的 `opus / sonnet / haiku` 体系
-- 你希望模型更主动地用宿主真实暴露的工具、Skill、计划、Agent 和 MCP
-- 你不想每轮手动加载 skills
-- 你希望普通对话不要误触发 agent team
-- 你希望中文会话尽量保持中文输出
-- 你希望插件尽量安静，不强行改写你现有工作流
+- 你已经把 GPT、Kimi、DeepSeek、Gemini、Qwen 等模型映射进 Claude Code
+- 你希望第三方模型更像 Opus 一样使用 Claude Code 的原生能力
+- 你不想每一轮都手动提醒“去用 skill / MCP / Agent / ToolSearch”
+- 你希望模型别把普通并行任务误判成 team workflow
+- 你希望在已有 skill / workflow / MCP / plugin 的环境里，第三方模型也能更自然地发现和使用它们
 
 ---
 
@@ -61,19 +91,13 @@
 
 `hello2cc` 不会：
 
-- 接管你的 provider / gateway / CCSwitch 配置
-- 替宿主打开本来不存在的能力
-- 压制宿主已经暴露出来的 Skill / workflow / MCP / plugin 能力
-- 覆盖你已经显式传入的 `model`
-- 接管 CCSwitch 的 `Thinking` / 推理模型映射
-- 强迫你进入一套插件专属工作流
-- 覆盖高优先级的 `CLAUDE.md` / `AGENTS.md` / 项目规则 / 用户明确要求
-
-对于 `WebSearch` 也是同样的边界：
-
-- 不会因为你用了自定义代理 / gateway 就直接替你禁用 `WebSearch`
-- 不会替宿主凭空创造本来不存在的联网能力
-- 只会尽量提醒模型：**只有拿到真实搜索条目 / 来源时，才把结果当成已经联网搜索**
+- 接管你的 provider / gateway / API key / 账号能力
+- 替宿主打开本来就没有暴露的工具
+- 把第三方模型兼容成另一个 provider 层
+- 压制宿主已经暴露出来的 skill / workflow / MCP / plugin 能力
+- 覆盖高优先级的 `CLAUDE.md`、`AGENTS.md`、项目规则和用户明确要求
+- 接管 CCSwitch / helloswitch 的模型映射职责
+- 把 `Thinking` / 推理模型路由纳入自己的职责边界
 
 它追求的是：
 
@@ -83,109 +107,167 @@
 
 ## 快速开始
 
-### 1. 添加本地 marketplace
+### 1）添加本地 marketplace
 
 ```bash
 claude plugin marketplace add "D:\GitHub\dev\hello2cc"
 ```
 
-### 2. 安装插件
+### 2）安装插件
 
 ```bash
 claude plugin install hello2cc@hello2cc-local
 ```
 
-### 3. 重新打开 Claude Code 会话
+### 3）重新打开 Claude Code 会话
 
-安装后通常不需要手动切 output style，也不需要再加载任何额外入口。
+通常不需要你手动切 output style，也不需要再手动加载额外入口。
 
-默认会自动生效的内容：
+安装后默认会生效的内容：
 
-- 主线程使用 `hello2cc:native`
-- 插件输出风格自动启用
-- 优先使用宿主已暴露的能力表面：工具、Agent、Skill / workflow、MCP、计划 / 任务路径
-- 关键 Agent 路径尽量保持与当前会话模型语义一致
+- 主线程走 `hello2cc:native`
+- 插件 output style 自动启用
+- 原生 `Agent.model` / team / isolation 参数在需要时自动净化
+- 第三方模型会更倾向按 Claude Code 当前真实暴露的宿主能力来行动
 
 ---
 
-## 重装 / 清缓存 / 升级
+## 重装 / 清理旧版本 / 升级
 
-如果你修改了本地仓库，或者想彻底清理旧版本缓存，推荐顺序：
+如果你修改了本地仓库，或者想彻底清掉旧缓存，建议按下面顺序：
 
-### 1. 卸载旧插件
+### 1）卸载旧插件
 
 ```bash
 claude plugin uninstall --scope user hello2cc@hello2cc-local
 ```
 
-### 2. 移除旧 marketplace（可选但推荐）
+### 2）移除旧 marketplace（推荐）
 
 ```bash
 claude plugin marketplace remove hello2cc-local
 ```
 
-### 3. 重新添加 marketplace
+### 3）重新添加 marketplace
 
 ```bash
 claude plugin marketplace add "D:\GitHub\dev\hello2cc"
 ```
 
-### 4. 重新安装
+### 4）重新安装
 
 ```bash
 claude plugin install hello2cc@hello2cc-local
 ```
 
-### 5. 建议重开会话
-
-如果你刚更新了仓库内容，建议：
-
-- 重新打开 Claude Code
-- 或执行 `/reload`
-
-这样更容易拿到最新缓存内容。
+### 5）建议重开会话或执行 `/reload`
 
 ---
 
-## 与 CCSwitch 配合的推荐方式
+## 与 CCSwitch / helloswitch 的关系
 
-这是最推荐的组合：
+建议这样分工：
 
-### CCSwitch 负责
+### 模型切换层负责
 
-- 主模型
-- 推理模型（Thinking）
-- `Haiku 默认模型`
-- `Sonnet 默认模型`
-- `Opus 默认模型`
+- 主模型映射
+- Thinking / 推理模型映射
+- `Opus / Sonnet / Haiku` 默认模型映射
+- 第三方别名到 Claude 槽位的落点控制
+- 代理链路、反代增强、工具协议兼容等
 
 ### hello2cc 负责
 
-- 原生工具 / Agent / 计划 / 任务 / MCP 使用习惯
+- 宿主能力图识别
+- 路由优先级与能力 specificity
+- 第三方模型对 Skill / workflow / MCP / ToolSearch / Agent 的使用习惯
 - `Agent.model` 的宿主安全槽位处理
-- 普通 worker 与 team workflow 的边界净化
-- worktree 使用边界
-- 与其他 orchestration 插件的兼容模式
-
-### 最佳实践
-
-如果你想让 Opus 家族最终落到 `opus(1M)`：
-
-- 在 **CCSwitch** 里把 **Opus 默认模型** 配成 `opus(1M)`
-- 在 **hello2cc** 里继续使用 `opus`
+- team 语义和 worktree 语义净化
 
 也就是说：
 
-- hello2cc 只负责写宿主安全槽位
-- CCSwitch 决定这个槽位最终映射到哪个实际模型
+- **模型接入层解决“接得进来”**
+- **hello2cc 解决“接进来以后怎么更像原生地工作”**
 
 ---
 
-## 推荐配置方案
+## 关于 `opus` 与 `opus(1M)`
+
+如果你希望 Opus 家族最终落到 `opus(1M)`：
+
+- 在 **CCSwitch / 你的模型映射层** 中，把 Opus 默认模型映射到 `opus(1M)`
+- 在 **hello2cc** 里，仍然写宿主安全槽位：`opus`
+
+hello2cc 可以识别：
+
+- `opus`
+- `opus(1M)`
+
+但在真正写入 `Agent.model` 时，会归一化为：
+
+- `opus`
+
+原因很简单：
+
+- hello2cc 只负责写宿主安全槽位
+- 最终槽位落到哪个真实模型，应由 CCSwitch / helloswitch / provider 映射层决定
+
+---
+
+## 内建 Agent 的建议使用方式
+
+| Agent | 适合什么 | 不适合什么 |
+|---|---|---|
+| `Explore` | 只读搜索、代码定位、广泛找入口 | 直接改文件、执行实现 |
+| `Plan` | 只读规划、分阶段方案、改造路线 | 直接改文件、直接执行实现 |
+| `General-Purpose` | 边界清晰的实现 / 修复 / 验证切片 | 过宽的开放式仓库探索 |
+| `Claude Code Guide` | Claude Code / API / SDK / hooks / settings / MCP 使用问题 | 普通业务代码实现 |
+
+如果是多 worker 场景，通常建议：
+
+- 研究 / 定位切片 → `Explore`
+- 规划 / 方案切片 → `Plan`
+- 实现 / 修复 / 验证切片 → `General-Purpose`
+
+---
+
+## MCP / deferred tools / workflow 的推荐理解
+
+### 如果已经知道 workflow
+
+- 优先续跑已加载 workflow / slash command / skill
+- 不要重新发现一遍相同流程
+
+### 如果已经 surfaced 了 skill
+
+- 优先 `Skill`
+- 不要自己重写同一套流程
+
+### 如果已经知道具体 MCP resource
+
+- 优先 `ReadMcpResource`
+- 不要先泛搜 MCP 面
+
+### 如果只知道 MCP server，不知道 resource
+
+- 优先 `ListMcpResources`
+
+### 如果某个 deferred tool 已加载
+
+- 直接调用
+- 不要再重复 ToolSearch
+
+### 如果只是知道“可能有工具”
+
+- 再用 `ToolSearch`
+
+---
+
+## 推荐配置
 
 ### 方案 A：最省心
 
-适合：你已经用 CCSwitch / gateway 把模型映射好了，只想让行为更接近原生。
+适合：你已经用 CCSwitch / gateway / 映射层把模型接好了，只想让行为更接近原生。
 
 建议：
 
@@ -194,13 +276,13 @@ claude plugin install hello2cc@hello2cc-local
 
 效果：
 
-- 主线程跟随当前会话模型语义
-- `Claude Code Guide` / `Explore` 等关键路径必要时跟随当前会话语义
-- `Plan` / `General-Purpose` 等路径尽量保留原生习惯
+- 优先跟随当前会话模型语义
+- 少量关键 Agent 路径在必要时镜像当前会话槽位
+- 尽量保留 Claude Code 自身默认行为
 
-### 方案 B：只修正少数 Agent
+### 方案 B：只改少数 Agent
 
-适合：你只想调整某几个 Agent 的默认槽位。
+适合：你只想调 `Guide / Explore / General-Purpose / Team` 等少数路径。
 
 建议：
 
@@ -208,17 +290,14 @@ claude plugin install hello2cc@hello2cc-local
 - 按需填写 `guide_model`、`explore_model`、`general_model`、`team_model`
 - 其他覆盖项留空
 
-### 方案 C：统一设一个默认 Agent 模型
+### 方案 C：统一设置默认 Agent 槽位
 
-适合：你想让多数 Agent 都稳定落到某个家族槽位。
+适合：你希望多数 Agent 稳定落在某个 Claude 槽位。
 
 例如：
 
 - `default_agent_model = opus`
-
-或者：
-
-- `default_agent_model = inherit`
+- 或 `default_agent_model = inherit`
 
 ---
 
@@ -227,63 +306,22 @@ claude plugin install hello2cc@hello2cc-local
 | 配置键 | 默认行为 | 说明 |
 |---|---|---|
 | `routing_policy` | `native-inject` | `native-inject` 会在需要时静默补 `Agent.model`；`prompt-only` 只做行为引导，不改工具输入 |
-| `mirror_session_model` | `true` | 优先镜像当前会话模型语义 |
-| `default_agent_model` | 空 | 原生 Agent 的统一默认模型偏好；推荐填写 `inherit / opus / sonnet / haiku` |
-| `primary_model` | 空 | 高能力原生 Agent 的显式槽位 |
-| `subagent_model` | 空 | 为未显式设模的原生 Agent 提供统一槽位 |
+| `mirror_session_model` | `true` | 优先镜像当前 Claude Code 会话模型语义 |
+| `default_agent_model` | 空 | 原生 Agent 的统一默认槽位，推荐填 `inherit / opus / sonnet / haiku` |
+| `primary_model` | 空 | 高能力原生 Agent 的显式 Claude 槽位 |
+| `subagent_model` | 空 | 未显式设模的原生 Agent / teammate 的统一槽位 |
 | `guide_model` | 空 | `Claude Code Guide` 的显式槽位 |
 | `explore_model` | 空 | `Explore` 的显式槽位 |
 | `plan_model` | 空 | `Plan` 的显式槽位 |
 | `general_model` | 空 | `General-Purpose` 的显式槽位 |
-| `team_model` | 空 | 真实 team teammate 的显式槽位 |
-| `compatibility_mode` | `full` | 与其他 orchestration 插件冲突时可切到 `sanitize-only`，只保留参数净化 |
+| `team_model` | 空 | 带 `team_name` 的 teammate 路径显式槽位 |
+| `compatibility_mode` | `full` | 与其他 orchestration 插件冲突时可切 `sanitize-only`，只保留参数净化 |
 
 ---
 
-## 关于 `opus(1M)` 的正确理解
+## 关于 `compatibility_mode = sanitize-only`
 
-`hello2cc` 推荐你直接填写 Claude Code 宿主安全槽位：
-
-- `inherit`
-- `opus`
-- `sonnet`
-- `haiku`
-
-如果你兼容性地填写了：
-
-- `opus(1M)`
-
-`hello2cc` 会在真正写入 `Agent.model` 时自动归一化为：
-
-- `opus`
-
-也就是说：
-
-- **hello2cc 可以识别 `opus(1M)`**
-- **但不会把 `opus(1M)` 原样写进 `Agent.model`**
-
-真正的 `opus -> opus(1M)` 落点，应该继续交给 CCSwitch 的 **Opus 默认模型** 去处理。
-
----
-
-## 关于 worktree 的行为
-
-`hello2cc` 当前的策略是：
-
-- **只有用户明确要求 worktree / 隔离工作区时**，才保留 `worktree` 相关路径
-- 普通并行 worker 不再默认误带 `worktree`
-
-这能减少并发 subagent 时出现：
-
-- worktree 创建失败
-- `.git/config.lock` 竞争
-- UI 显示 `0 tool uses` 但其实 agent 没真正开始工作
-
----
-
-## 关于与其他插件共存
-
-如果你同时启用了 OMC 或其他也会大量注入 hooks / system-reminder 的插件，建议尝试：
+如果你同时启用了其他也会大量注入 hooks / additionalContext / system-reminder 的插件，推荐尝试：
 
 ```json
 {
@@ -293,10 +331,10 @@ claude plugin install hello2cc@hello2cc-local
 
 启用后：
 
-- 保留 `model / team / isolation` 这类参数净化
-- 不再继续注入 `SessionStart / UserPromptSubmit / SubagentStart` 的额外上下文
+- 保留 `Agent.model`、team 语义、worktree 语义净化
+- 不再继续注入 `SessionStart / UserPromptSubmit / SubagentStart` 附加上下文
 
-这更适合多插件并存环境。
+适合多插件共存环境。
 
 ---
 
@@ -306,49 +344,43 @@ claude plugin install hello2cc@hello2cc-local
 
 通常不需要。
 
-### hello2cc 要不要接管 CCSwitch 的 Thinking 模型？
+### hello2cc 会不会阻止 skill / plugin / MCP？
+
+不会。
+
+当前方向恰恰相反：它会尽量把第三方模型往宿主已经暴露出来的这些能力上推。
+
+### hello2cc 会不会替我打开本来不存在的工具？
+
+不会。
+
+它只能帮助模型更好地使用**已经暴露**的宿主能力，不能替宿主创造能力。
+
+### 是否建议把第三方模型别名直接写到 hello2cc 配置里？
 
 不建议。
 
-`Thinking` 更适合继续由 CCSwitch / 主线程模型配置负责；hello2cc 只处理原生 Agent 行为层。
-
-### 可以直接把第三方别名写进 hello2cc 吗？
-
-不推荐。
-
 更推荐：
 
-- 在 CCSwitch / provider / gateway 层处理实际模型映射
-- 在 hello2cc 里只写 Claude Code 宿主安全槽位
+- 模型映射层处理真实模型别名
+- hello2cc 只写宿主安全槽位
 
-### 普通并行任务为什么不推荐默认走 team？
+### 普通并行任务为什么不建议默认走 team？
 
-因为普通 worker 和持久 team 是两种不同语义。
+因为普通 worker 与持久团队是两套不同语义。
 
-普通并行任务更适合：
+普通并行更适合：
 
 - 多个原生 `Agent` worker 并行
 - 完成后回传结果
 
-而不是一上来就进入 `TeamCreate`
+只有真的需要持久团队身份与团队编排时，才建议 `TeamCreate`
 
-### 会不会影响已有项目规则？
-
-设计目标是不影响。
-
-只要更高优先级规则已经定义了格式、流程、命令路由或输出习惯，hello2cc 会尽量让位。
-
-### 如果我后面用 helloswitch 增强代理，让第三方模型真正支持 Claude Code 的 WebSearch / tools，会不会和 hello2cc 冲突？
+### 如果后面用 helloswitch 增强了代理，让第三方模型更完整支持 Claude Code 工具协议，会和 hello2cc 冲突吗？
 
 不会。
 
-`hello2cc` 不会因为你使用了代理就硬禁用 `WebSearch` 或普通工具调用。  
-它做的是更轻的“真实性保护”：
-
-- 如果真实拿到了搜索条目 / 来源，就正常按联网结果组织回答
-- 如果界面出现 `Did 0 searches`、没有来源、没有真实搜索结果，就不要把记忆包装成“已经搜过”
-
-所以如果你的代理后续真的被增强到能正确支持 Claude Code 的工具协议，`hello2cc` 不会挡住这条路径。
+hello2cc 不会挡住真实可用的宿主工具链路；相反，它会尽量让第三方模型优先走这些真实暴露出来的路径。
 
 ---
 

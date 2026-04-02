@@ -63,11 +63,11 @@ export function renderAcknowledgements(refs = []) {
     .map((ref) => {
       const kind = ref.kind === 'pr' ? 'PR' : 'issue';
       const link = ref.html_url || ref.url || '';
-      const login = ref.login ? `@${ref.login}` : 'the reporter/contributor';
+      const login = ref.login ? `@${ref.login}` : '相关反馈者 / 贡献者';
       const label = `#${ref.number}`;
       const title = ref.title ? ` — ${ref.title}` : '';
       const suffix = link ? ` (${link})` : '';
-      return `- Thanks ${login} for ${kind} ${label}${title}${suffix}`;
+      return `- 感谢 ${login} 对 ${kind} ${label}${title} 的反馈与推动${suffix}`;
     });
 
   if (lines.length === 0) {
@@ -75,7 +75,7 @@ export function renderAcknowledgements(refs = []) {
   }
 
   return [
-    '## Acknowledgements / 致谢',
+    '## 致谢',
     '',
     ...lines,
   ].join('\n');
@@ -97,7 +97,7 @@ export function renderReleaseNotes({ section, acknowledgements = '', compareUrl 
   }
 
   if (compareUrl) {
-    parts.push('', `**Full Changelog**: ${compareUrl}`);
+    parts.push('', `**完整变更对比**：${compareUrl}`);
   }
 
   return `${parts.join('\n').trim()}\n`;

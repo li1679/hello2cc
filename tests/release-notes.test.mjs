@@ -55,9 +55,9 @@ test('renders acknowledgement lines with issue and pr labels', () => {
     },
   ]);
 
-  assert.match(text, /Acknowledgements/);
-  assert.match(text, /Thanks @alice for issue #7/);
-  assert.match(text, /Thanks @bob for PR #12/);
+  assert.match(text, /致谢/);
+  assert.match(text, /感谢 @alice 对 issue #7/);
+  assert.match(text, /感谢 @bob 对 PR #12/);
 });
 
 test('renders full release notes with compare link', () => {
@@ -77,6 +77,6 @@ test('renders full release notes with compare link', () => {
 
   assert.match(notes, /^## 1\.2\.3 - 2026-04-02/m);
   assert.match(notes, /Fixed issue #7/);
-  assert.match(notes, /Acknowledgements \/ 致谢/);
-  assert.match(notes, /\*\*Full Changelog\*\*/);
+  assert.match(notes, /## 致谢/);
+  assert.match(notes, /\*\*完整变更对比\*\*/);
 });

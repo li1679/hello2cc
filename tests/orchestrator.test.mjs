@@ -195,6 +195,8 @@ test('route promotes native guide flow without suppressing skill usage', () => {
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /Claude Code Guide/);
+  assert.match(context, /WebFetch/);
+  assert.match(context, /WebSearch/);
   assert.match(context, /ToolSearch/);
 });
 
@@ -327,6 +329,167 @@ test('route remembers already loaded skill workflows from command-name tags', ()
   assert.match(context, /不要重复发现或重写/);
 });
 
+test('session-start builds a finer capability graph from workflows, deferred tools, and MCP resources', () => {
+  const env = isolatedEnv();
+  const sessionId = 'session-capability-graph';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Skill', 'DiscoverSkills', 'ToolSearch', 'ListMcpResources', 'ReadMcpResource', 'Agent'],
+    agents: ['Explore', 'Plan', 'general-purpose', 'claude-code-guide'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '<command-name>brainstorm</command-name>\n<command-args>--focus host-surface</command-args>\n<skill-format>true</skill-format>',
+          },
+        ],
+      },
+      attachments: [
+        {
+          type: 'deferred_tools_delta',
+          addedNames: ['mcp__github__add_issue_comment'],
+          addedLines: ['mcp__github__add_issue_comment'],
+          removedNames: [],
+        },
+        {
+          type: 'mcp_resource',
+          server: 'github',
+          uri: 'repo://issues/7',
+          name: 'Issue #7',
+          description: 'Issue resource',
+          content: {},
+        },
+      ],
+    },
+    {
+      type: 'system',
+      subtype: 'task_started',
+      session_id: sessionId,
+      task_type: 'local_workflow',
+      workflow_name: 'release',
+      description: 'Run release workflow',
+    },
+    {
+      type: 'user',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'tool_result',
+            content: [
+              {
+                type: 'tool_reference',
+                tool_name: 'mcp__github__add_issue_comment',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run('session-start', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Skill', 'DiscoverSkills', 'ToolSearch', 'ListMcpResources', 'ReadMcpResource', 'Agent'],
+    agents: ['Explore', 'Plan', 'general-purpose', 'claude-code-guide'],
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /Specificity 路由/);
+  assert.match(context, /已加载过的 skill \/ workflow：`brainstorm --focus host-surface`/);
+  assert.match(context, /已出现过 workflow：`release`/);
+  assert.match(context, /已 surfaced 的 deferred tools：`mcp__github__add_issue_comment`/);
+  assert.match(context, /已加载过的 deferred tools：`mcp__github__add_issue_comment`/);
+  assert.match(context, /已观测到的 MCP resources：`github:repo:\/\/issues\/7`/);
+  assert.match(context, /Explore.*只读搜索/);
+  assert.match(context, /Plan.*只读规划/);
+  assert.match(context, /General-Purpose.*全工具面/);
+  assert.match(context, /Claude Code Guide.*WebFetch.*WebSearch/);
+});
+
+test('route applies specificity routing across workflows, MCP resources, and deferred tools', () => {
+  const env = isolatedEnv();
+  const sessionId = 'route-specificity';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Skill', 'DiscoverSkills', 'ToolSearch', 'ListMcpResources', 'ReadMcpResource'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '<command-name>release</command-name>\n<command-args>--notes zh</command-args>\n<skill-format>true</skill-format>',
+          },
+        ],
+      },
+      attachments: [
+        {
+          type: 'deferred_tools_delta',
+          addedNames: ['mcp__github__add_issue_comment'],
+          addedLines: ['mcp__github__add_issue_comment'],
+          removedNames: [],
+        },
+        {
+          type: 'mcp_resource',
+          server: 'github',
+          uri: 'repo://issues/8',
+          name: 'Issue #8',
+          description: 'Issue resource',
+          content: {},
+        },
+      ],
+    },
+    {
+      type: 'system',
+      subtype: 'task_started',
+      session_id: sessionId,
+      task_type: 'local_workflow',
+      workflow_name: 'release',
+      description: 'Run release workflow',
+    },
+    {
+      type: 'user',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'tool_result',
+            content: [
+              {
+                type: 'tool_reference',
+                tool_name: 'mcp__github__add_issue_comment',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run('route', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Skill', 'DiscoverSkills', 'ToolSearch', 'ListMcpResources', 'ReadMcpResource'],
+    prompt: '继续这个 release 流程，并基于已有 MCP resource 处理 issue，再用已经加载的 github 工具完成跟进。',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /已加载过的 skill \/ workflow：`release --notes zh`/);
+  assert.match(context, /已出现过 workflow：`release`/);
+  assert.match(context, /已观测到的 MCP resources：`github:repo:\/\/issues\/8`/);
+  assert.match(context, /MCP specificity 顺序：已知 resource URI/);
+  assert.match(context, /这些 deferred tools 已经通过 ToolSearch 加载过：`mcp__github__add_issue_comment`/);
+  assert.match(context, /只有当更具体的 workflow \/ skill \/ MCP resource \/ deferred tool 线索都不覆盖时，再 `ToolSearch`/);
+});
+
 test('route extracts prompt text from structured payloads', () => {
   const env = isolatedEnv();
   run('session-start', {
@@ -361,6 +524,8 @@ test('route keeps codebase research on native search tools before agent escalati
 
   assert.match(context, /代码库研究/);
   assert.match(context, /原生读写 \/ 搜索工具/);
+  assert.match(context, /Explore/);
+  assert.match(context, /Plan/);
   assert.doesNotMatch(context, /先 `ToolSearch`/);
 });
 
@@ -388,6 +553,7 @@ test('route promotes General-Purpose for bounded implementation slices', () => {
   const context = output.hookSpecificOutput.additionalContext;
 
   assert.match(context, /General-Purpose/);
+  assert.match(context, /全工具面/);
 });
 
 test('route uses AskUserQuestion on decision-heavy tasks', () => {

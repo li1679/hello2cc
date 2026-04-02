@@ -2,7 +2,7 @@ import { configuredModels } from './config.mjs';
 import { resolveWebSearchGuidanceMode } from './api-topology.mjs';
 
 function buildTaskPlanningStep() {
-  return '这是非 trivial 实现：先 `EnterPlanMode()`；只有真的需要任务盘时再用 `TaskCreate` / `TaskList` / `TaskUpdate`。';
+  return '这是非 trivial 实现：先 `EnterPlanMode()`；如果要把只读规划切给 subagent，优先 `Plan`（只读规划，工具面基本继承 `Explore`）；只有真的需要任务盘时再用 `TaskCreate` / `TaskList` / `TaskUpdate`。';
 }
 
 function buildTaskTrackingStep() {
@@ -11,6 +11,45 @@ function buildTaskTrackingStep() {
 
 function formatNames(values = []) {
   return values.map((value) => `\`${value}\``).join(', ');
+}
+
+function formatCommandEntries(values = []) {
+  return values
+    .map((value) => {
+      const name = String(value?.name || '').trim();
+      const args = String(value?.args || '').trim();
+      if (!name) return '';
+      return `\`${args ? `${name} ${args}` : name}\``;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+function formatMcpResources(values = [], limit = 4) {
+  return values
+    .slice(0, limit)
+    .map((value) => `\`${value.server}:${value.uri}\``)
+    .join(', ');
+}
+
+function loadedCommandEntries(sessionContext = {}) {
+  return Array.isArray(sessionContext?.loadedCommands) ? sessionContext.loadedCommands.filter(Boolean) : [];
+}
+
+function workflowEntries(sessionContext = {}) {
+  return Array.isArray(sessionContext?.workflowEntries) ? sessionContext.workflowEntries.filter(Boolean) : [];
+}
+
+function availableDeferredToolNames(sessionContext = {}) {
+  return Array.isArray(sessionContext?.availableDeferredToolNames) ? sessionContext.availableDeferredToolNames.filter(Boolean) : [];
+}
+
+function loadedDeferredToolNames(sessionContext = {}) {
+  return Array.isArray(sessionContext?.loadedDeferredToolNames) ? sessionContext.loadedDeferredToolNames.filter(Boolean) : [];
+}
+
+function mcpResources(sessionContext = {}) {
+  return Array.isArray(sessionContext?.mcpResources) ? sessionContext.mcpResources.filter(Boolean) : [];
 }
 
 function recommendedTrackLabels(signals) {
@@ -38,6 +77,7 @@ function buildSwarmStep(signals) {
   return [
     `这是多线任务：优先在同一条回复里并行发起多个原生 \`Agent\` worker，分别覆盖 ${trackList}。`,
     '普通并行 worker 走 plain subagent 路径：不要给普通 worker 传 `name` 或 `team_name`，避免被宿主误判为 teammate。',
+    '研究 / 定位 slice 优先 `Explore`（只读搜索）；规划 slice 优先 `Plan`（只读规划）；边界清晰的实现 / 验证 slice 优先 `General-Purpose`（全工具面）。',
     '启动后简短告诉用户已启动哪些 worker，然后等待完成通知 / 回传消息，不要立刻轮询普通 agent 结果。',
     '需要补充指令或续派时用 `SendMessage`；如果某个 worker 明显走错方向，再用 `TaskStop`。',
     '不要把 `TaskOutput` 当成普通 worker 的默认结果获取方式；它更适合明确的后台任务日志读取。',
@@ -46,27 +86,34 @@ function buildSwarmStep(signals) {
 
 function buildResearchStep(signals) {
   if (signals.claudeGuide) {
-    return '这是 Claude Code / Claude API / Agent SDK / hooks / settings / MCP 能力问题：优先调用原生 `Agent` 的 `Claude Code Guide`。';
+    return '这是 Claude Code / Claude API / Agent SDK / hooks / settings / MCP 能力问题：优先调用原生 `Agent` 的 `Claude Code Guide`（本地读搜 + `WebFetch` + `WebSearch`）。';
   }
 
   if (signals.codeResearch) {
-    return '这是代码库研究 / 定位任务：先用原生读写 / 搜索工具缩小范围，再在需要更大搜索面时转原生 `Explore` 或 `Plan`。';
+    return '这是代码库研究 / 定位任务：先用原生读写 / 搜索工具缩小范围，再在需要更大搜索面时转原生 `Explore`（只读搜索）或 `Plan`（只读规划）。';
   }
 
   if (!signals.research) {
     return '';
   }
 
-  return '这是研究 / 对比 / 文档任务：先做定向搜索与证据收集，再在需要扩大搜索面时转原生 `Explore` 或 `Plan`。';
+  return '这是研究 / 对比 / 文档任务：先做定向搜索与证据收集，再在需要扩大搜索面时转原生 `Explore`（只读搜索）或 `Plan`（只读规划）。';
 }
 
 function buildSkillWorkflowStep(signals, sessionContext = {}) {
   const skillToolAvailable = Boolean(sessionContext?.skillToolAvailable);
   const discoverSkillsAvailable = Boolean(sessionContext?.discoverSkillsAvailable);
   const surfacedSkillNames = Array.isArray(sessionContext?.surfacedSkillNames) ? sessionContext.surfacedSkillNames.filter(Boolean) : [];
-  const loadedCommandNames = Array.isArray(sessionContext?.loadedCommandNames) ? sessionContext.loadedCommandNames.filter(Boolean) : [];
+  const loadedCommands = loadedCommandEntries(sessionContext);
+  const workflows = workflowEntries(sessionContext);
 
-  if (!skillToolAvailable && !discoverSkillsAvailable && surfacedSkillNames.length === 0 && loadedCommandNames.length === 0) {
+  if (
+    !skillToolAvailable &&
+    !discoverSkillsAvailable &&
+    surfacedSkillNames.length === 0 &&
+    loadedCommands.length === 0 &&
+    workflows.length === 0
+  ) {
     return '';
   }
 
@@ -74,7 +121,8 @@ function buildSkillWorkflowStep(signals, sessionContext = {}) {
     signals.skillSurface ||
     signals.skillWorkflowLike ||
     signals.complex ||
-    signals.taskList,
+    signals.taskList ||
+    signals.workflowContinuation,
   );
 
   if (!needsWorkflowRouting) {
@@ -83,12 +131,16 @@ function buildSkillWorkflowStep(signals, sessionContext = {}) {
 
   const lines = [];
 
-  if (loadedCommandNames.length) {
-    lines.push(`当前会话已加载过的 skill / workflow：${formatNames(loadedCommandNames)}。如果当前任务是在延续这些流程，直接沿着现有上下文继续，不要重复发现或重写。`);
+  if (loadedCommands.length) {
+    lines.push(`当前会话已加载过的 skill / workflow：${formatCommandEntries(loadedCommands)}。如果当前任务是在延续这些流程，直接沿着现有上下文继续，不要重复发现或重写。`);
+  }
+
+  if (workflows.length) {
+    lines.push(`当前会话已出现过 workflow：${formatNames(workflows.map((entry) => entry.name))}。如果当前任务在延续这些流程，优先继续现有 workflow。`);
   }
 
   if (surfacedSkillNames.length) {
-    lines.push(`当前会话已 surfaced 的 skills：${formatNames(surfacedSkillNames)}。如果其中有匹配项，优先直接调用对应 ` + '`Skill`' + '。');
+    lines.push(`当前会话已 surfaced 的 skills：${formatNames(surfacedSkillNames)}。如果其中有匹配项，优先直接调用对应 \`Skill\`。`);
   }
 
   if (skillToolAvailable) {
@@ -101,6 +153,62 @@ function buildSkillWorkflowStep(signals, sessionContext = {}) {
 
   if (skillToolAvailable && discoverSkillsAvailable) {
     lines.push('`ToolSearch` 主要用于工具 / MCP / 权限边界发现；`DiscoverSkills` 主要用于 skill / workflow 发现，不要混用。');
+  }
+
+  return lines.join(' ');
+}
+
+function buildMcpSpecificityStep(signals, sessionContext = {}) {
+  const resources = mcpResources(sessionContext);
+  const listAvailable = Boolean(sessionContext?.listMcpResourcesAvailable);
+  const readAvailable = Boolean(sessionContext?.readMcpResourceAvailable);
+
+  if (!signals.mcp && !signals.workflowContinuation && resources.length === 0) {
+    return '';
+  }
+
+  const lines = [];
+
+  if (resources.length) {
+    if (readAvailable) {
+      lines.push(`当前会话已观测到的 MCP resources：${formatMcpResources(resources)}。如果下一步继续用这些资源，优先直接 \`ReadMcpResource\`，不要先重新发现整个 MCP 面。`);
+    } else {
+      lines.push(`当前会话已观测到的 MCP resources：${formatMcpResources(resources)}。如果宿主提供资源读取入口，优先直接读取这些已知资源。`);
+    }
+  }
+
+  if (listAvailable || readAvailable) {
+    lines.push('MCP specificity 顺序：已知 resource URI → `ReadMcpResource`；只知道 server 或需要资源目录 → `ListMcpResources`；连 server / resource 都不确定时再 `ToolSearch`。');
+  }
+
+  return lines.join(' ');
+}
+
+function buildDeferredToolStep(signals, sessionContext = {}) {
+  const availableDeferred = availableDeferredToolNames(sessionContext);
+  const loadedDeferred = loadedDeferredToolNames(sessionContext);
+
+  if (loadedDeferred.length === 0 && availableDeferred.length === 0) {
+    return '';
+  }
+
+  if (
+    !signals.workflowContinuation &&
+    !signals.capabilityQuery &&
+    !signals.mcp &&
+    !signals.tools
+  ) {
+    return '';
+  }
+
+  const lines = [];
+
+  if (loadedDeferred.length) {
+    lines.push(`这些 deferred tools 已经通过 ToolSearch 加载过：${formatNames(loadedDeferred)}。如果下一步正好要用它们，直接调用，不要重复 ToolSearch。`);
+  }
+
+  if (availableDeferred.length) {
+    lines.push(`这些 deferred tools 已 surfaced：${formatNames(availableDeferred)}。需要它们时优先精确 ToolSearch，而不是先泛化到更宽的 agent 路径。`);
   }
 
   return lines.join(' ');
@@ -131,6 +239,13 @@ function buildCurrentInfoStep(signals, sessionContext = {}) {
 export function buildRouteStepsFromSignals(signals, sessionContext = {}) {
   const config = configuredModels(sessionContext);
   const steps = [];
+  const hasSpecificContinuationSurface = Boolean(
+    loadedCommandEntries(sessionContext).length ||
+    workflowEntries(sessionContext).length ||
+    mcpResources(sessionContext).length ||
+    loadedDeferredToolNames(sessionContext).length ||
+    availableDeferredToolNames(sessionContext).length
+  );
 
   steps.push('可见文本默认跟随用户当前语言；不要输出“我打算 / 我应该 / let’s”这类内部思考式元叙述。');
 
@@ -139,7 +254,19 @@ export function buildRouteStepsFromSignals(signals, sessionContext = {}) {
     steps.push(skillWorkflowStep);
   }
 
-  if (signals.toolSearchFirst) {
+  const mcpSpecificityStep = buildMcpSpecificityStep(signals, sessionContext);
+  if (mcpSpecificityStep) {
+    steps.push(mcpSpecificityStep);
+  }
+
+  const deferredToolStep = buildDeferredToolStep(signals, sessionContext);
+  if (deferredToolStep) {
+    steps.push(deferredToolStep);
+  }
+
+  if (signals.toolSearchFirst && hasSpecificContinuationSurface) {
+    steps.push('只有当更具体的 workflow / skill / MCP resource / deferred tool 线索都不覆盖时，再 `ToolSearch` 确认可用工具、原生 agent 类型、MCP 能力、权限与边界。');
+  } else if (signals.toolSearchFirst) {
     steps.push('先 `ToolSearch` 确认可用工具、原生 agent 类型、MCP 能力、权限与边界，不要凭记忆猜。');
   }
 
@@ -158,7 +285,7 @@ export function buildRouteStepsFromSignals(signals, sessionContext = {}) {
   }
 
   if (signals.boundedImplementation) {
-    steps.push('这是边界清晰的实现 / 修复 / 验证子任务：优先使用原生 `Agent` 的 `General-Purpose` 承接单一切片，而不是把探索、规划和实现都混在主线程。');
+    steps.push('这是边界清晰的实现 / 修复 / 验证子任务：优先使用原生 `Agent` 的 `General-Purpose`（全工具面）承接单一切片，而不是把探索、规划和实现都混在主线程。');
   }
 
   if (signals.complex) {

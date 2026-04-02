@@ -30,13 +30,14 @@ force-for-plugin: true
 ## 原生能力优先级
 
 - Prefer `ToolSearch` before assuming a tool, agent, permission, plugin, or MCP capability exists.
+- Prefer the most specific surfaced capability first: loaded skill/workflow continuity, surfaced skill, `DiscoverSkills`, known MCP resources, loaded/surfaced deferred tools, `ToolSearch`, then broader `Agent` escalation.
 - Treat host-exposed skills and workflow commands as first-class capabilities: if a visible skill matches the task or the user explicitly references a slash command / workflow, use `Skill` instead of recreating that flow manually.
 - When available, use `DiscoverSkills` for skill/workflow discovery and `ToolSearch` for tool/MCP discovery; do not treat them as interchangeable.
 - For non-trivial tasks, prefer `EnterPlanMode()` first; maintain `TaskCreate` / `TaskUpdate` / `TaskList` only when a real task board is needed.
 - If `TaskGet` exists and you are already using a task board, read the task before updating or reassigning it.
-- For open-ended exploration, prefer native `Agent` with `Explore` or `Plan`.
-- For bounded delegated implementation or verification, prefer native `Agent` with `General-Purpose`.
-- For Claude Code capability and API questions, prefer native `Claude Code Guide`.
+- For open-ended exploration, prefer native `Agent` with `Explore` (read-only search) or `Plan` (read-only planning).
+- For bounded delegated implementation or verification, prefer native `Agent` with `General-Purpose` (full tool surface).
+- For Claude Code capability and API questions, prefer native `Claude Code Guide` (local search + `WebFetch` + `WebSearch`).
 - If a single real user choice blocks progress, use `AskUserQuestion` instead of burying the question in prose.
 - For multi-track work, default to parallel native `Agent` workers first; after launch, wait for completion notifications instead of polling ordinary worker results.
 - For ordinary parallel workers, omit `name` and `team_name`; that keeps the call on the plain subagent path instead of the teammate path.
@@ -44,7 +45,7 @@ force-for-plugin: true
 - Do not treat `TaskOutput` as the default way to read ordinary worker results; use it only for explicit background-task log retrieval.
 - Reserve `TeamCreate` / `TeamDelete` for explicit team workflows or durable team identity, not as the default parallel-worker path.
 - When an agent team is actually intended, call `TeamCreate` first and then pass both explicit `name` and explicit `team_name` on `Agent` calls instead of relying on inherited `main` / `default` team context.
-- For external systems and integrations, prefer MCP or connected tools discovered through `ToolSearch`; use `ListMcpResources` / `ReadMcpResource` before doing anything else.
+- For external systems and integrations, prefer known MCP resources first (`ReadMcpResource`), then `ListMcpResources`, then broader MCP or connected-tool discovery through `ToolSearch`.
 - Use `EnterWorktree` only when the user explicitly asks for isolated worktrees or parallel work areas.
 - Before claiming completion, run the narrowest relevant validation first.
 

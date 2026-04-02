@@ -364,6 +364,19 @@ const WORKTREE_PATTERNS = [
   /工作树/,
 ];
 
+const CONTINUATION_PATTERNS = [
+  /\bcontinue\b/,
+  /\bresume\b/,
+  /\bcarry on\b/,
+  /\bpick up\b/,
+  /继续/,
+  /接着/,
+  /延续/,
+  /沿着/,
+  /接续/,
+  /继续这个/,
+];
+
 const SKILL_SURFACE_PATTERNS = [
   /\bskill\b/,
   /skills/,
@@ -435,6 +448,7 @@ export function classifyPrompt(prompt) {
   const codeResearch = research && !capabilityQuery;
   const skillSurface = hasAny(text, SKILL_SURFACE_PATTERNS);
   const skillWorkflowLike = skillSurface || hasAny(text, SKILL_DISCOVERY_PATTERNS);
+  const workflowContinuation = hasAny(text, CONTINUATION_PATTERNS);
 
   const tracks = [];
   if (frontend) tracks.push('frontend');
@@ -476,6 +490,7 @@ export function classifyPrompt(prompt) {
     codeResearch,
     skillSurface,
     skillWorkflowLike,
+    workflowContinuation,
     tracks,
     boundedImplementation,
     toolSearchFirst: capabilityQuery,

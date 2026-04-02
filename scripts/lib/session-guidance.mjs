@@ -1,8 +1,28 @@
 import { FORCED_OUTPUT_STYLE_NAME, configuredModels } from './config.mjs';
 import { resolveWebSearchGuidanceMode } from './api-topology.mjs';
+import { observedAgentSurfaces } from './session-capabilities.mjs';
 
 function formatNames(values) {
   return values.map((value) => `\`${value}\``).join(', ');
+}
+
+function formatCommandEntries(values) {
+  return values
+    .map((value) => {
+      const name = String(value?.name || '').trim();
+      const args = String(value?.args || '').trim();
+      if (!name) return '';
+      return `\`${args ? `${name} ${args}` : name}\``;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+function formatMcpResources(values, limit = 4) {
+  return values
+    .slice(0, limit)
+    .map((value) => `\`${value.server}:${value.uri}\``)
+    .join(', ');
 }
 
 function detectedTools(sessionContext = {}) {
@@ -17,15 +37,46 @@ function surfacedSkills(sessionContext = {}) {
   return Array.isArray(sessionContext?.surfacedSkillNames) ? sessionContext.surfacedSkillNames.filter(Boolean) : [];
 }
 
-function loadedCommands(sessionContext = {}) {
-  return Array.isArray(sessionContext?.loadedCommandNames) ? sessionContext.loadedCommandNames.filter(Boolean) : [];
+function surfacedSkillEntries(sessionContext = {}) {
+  return Array.isArray(sessionContext?.surfacedSkills) ? sessionContext.surfacedSkills.filter(Boolean) : [];
+}
+
+function loadedCommandEntries(sessionContext = {}) {
+  return Array.isArray(sessionContext?.loadedCommands) ? sessionContext.loadedCommands.filter(Boolean) : [];
+}
+
+function workflowNames(sessionContext = {}) {
+  return Array.isArray(sessionContext?.workflowNames) ? sessionContext.workflowNames.filter(Boolean) : [];
+}
+
+function availableDeferredToolNames(sessionContext = {}) {
+  return Array.isArray(sessionContext?.availableDeferredToolNames) ? sessionContext.availableDeferredToolNames.filter(Boolean) : [];
+}
+
+function loadedDeferredToolNames(sessionContext = {}) {
+  return Array.isArray(sessionContext?.loadedDeferredToolNames) ? sessionContext.loadedDeferredToolNames.filter(Boolean) : [];
+}
+
+function mcpResources(sessionContext = {}) {
+  return Array.isArray(sessionContext?.mcpResources) ? sessionContext.mcpResources.filter(Boolean) : [];
 }
 
 function buildObservedSurfaceLines(sessionContext = {}) {
   const tools = detectedTools(sessionContext);
   const agents = detectedAgents(sessionContext);
+  const workflows = workflowNames(sessionContext);
+  const availableDeferred = availableDeferredToolNames(sessionContext);
+  const loadedDeferred = loadedDeferredToolNames(sessionContext);
+  const resources = mcpResources(sessionContext);
 
-  if (tools.length === 0 && agents.length === 0) {
+  if (
+    tools.length === 0 &&
+    agents.length === 0 &&
+    workflows.length === 0 &&
+    availableDeferred.length === 0 &&
+    loadedDeferred.length === 0 &&
+    resources.length === 0
+  ) {
     return [
       '## 当前会话能力',
       '- Claude Code 还没有在 hook 负载里显式列出本会话能力；保持原生工作方式即可，不要凭空发明不存在的工具或 agent。',
@@ -38,6 +89,18 @@ function buildObservedSurfaceLines(sessionContext = {}) {
   }
   if (agents.length) {
     lines.push(`- 已观测到的内建 agent：${formatNames(agents)}。`);
+  }
+  if (workflows.length) {
+    lines.push(`- 当前会话已出现过 workflow：${formatNames(workflows)}。`);
+  }
+  if (availableDeferred.length) {
+    lines.push(`- 当前会话已 surfaced 的 deferred tools：${formatNames(availableDeferred)}。`);
+  }
+  if (loadedDeferred.length) {
+    lines.push(`- 当前会话已加载过的 deferred tools：${formatNames(loadedDeferred)}。`);
+  }
+  if (resources.length) {
+    lines.push(`- 当前会话已观测到的 MCP resources：${formatMcpResources(resources)}。`);
   }
   return lines;
 }
@@ -71,11 +134,12 @@ function buildWorkingHabitLines() {
     '- 不要把内部思考过程直接说出来；工具前说明保持一句简短行动描述，避免“我打算 / 我应该 / let’s”式元叙述。',
     '- 把宿主已暴露的 skills / workflows / plugin tools / MCP tools 视为一等能力；不要因为 hello2cc 存在就绕开它们。',
     '- 有专用读写 / 搜索工具时优先用专用工具，再考虑 shell。',
+    '- 优先走最具体的能力表面：已加载的 workflow / slash command / skill 连续体 → 已 surfaced 的 skill → `DiscoverSkills` → 已知 MCP resource → 已加载 / 已 surfaced 的 deferred tool → `ToolSearch` → 更宽的 agent 路径。',
     '- 非 trivial 任务优先 `EnterPlanMode()`；只有真的需要任务盘时再维护原生 `Task*`。',
     '- 不确定可用工具、agent、MCP、权限边界时，优先 `ToolSearch`。',
-    '- Claude Code / hooks / MCP / settings / Agent SDK / Claude API 问题优先 `Claude Code Guide`。',
-    '- 代码库研究与范围探索优先原生搜索，再按需要转 `Explore` 或 `Plan`。',
-    '- 边界清晰的实现、修复、验证切片优先 `General-Purpose`。',
+    '- Claude Code / hooks / MCP / settings / Agent SDK / Claude API 问题优先 `Claude Code Guide`（本地读搜 + `WebFetch` + `WebSearch`）。',
+    '- 代码库研究与范围探索优先原生搜索，再按需要转 `Explore`（只读搜索）或 `Plan`（只读规划）。',
+    '- 边界清晰的实现、修复、验证切片优先 `General-Purpose`（全工具面）。',
     '- 多线任务默认优先并行多个原生 `Agent` worker；续派优先 `SendMessage`；跑偏时再 `TaskStop`。',
     '- 普通 `Agent` worker 默认不要传 `name` / `team_name`；避免宿主把普通 subagent 误路由成 teammate。',
     '- 只有用户明确要求团队编排或持久团队身份时，才使用 `TeamCreate`；完成后及时 `TeamDelete`。',
@@ -88,13 +152,77 @@ function buildWorkingHabitLines() {
   ];
 }
 
+function buildSpecificityLines(sessionContext = {}) {
+  const loaded = loadedCommandEntries(sessionContext);
+  const workflows = workflowNames(sessionContext);
+  const availableDeferred = availableDeferredToolNames(sessionContext);
+  const loadedDeferred = loadedDeferredToolNames(sessionContext);
+  const resources = mcpResources(sessionContext);
+  const skillToolAvailable = Boolean(sessionContext?.skillToolAvailable);
+  const discoverSkillsAvailable = Boolean(sessionContext?.discoverSkillsAvailable);
+  const listMcpResourcesAvailable = Boolean(sessionContext?.listMcpResourcesAvailable);
+  const readMcpResourceAvailable = Boolean(sessionContext?.readMcpResourceAvailable);
+
+  if (
+    loaded.length === 0 &&
+    workflows.length === 0 &&
+    resources.length === 0 &&
+    availableDeferred.length === 0 &&
+    loadedDeferred.length === 0 &&
+    !skillToolAvailable &&
+    !discoverSkillsAvailable &&
+    !listMcpResourcesAvailable &&
+    !readMcpResourceAvailable
+  ) {
+    return [];
+  }
+
+  const lines = ['## Specificity 路由'];
+  lines.push('- 默认顺序：已加载 workflow / slash command / skill 连续体 → 已 surfaced 的 skill → `DiscoverSkills` → 已知 MCP resource → 已加载 / 已 surfaced 的 deferred tool → `ToolSearch` → 更广的 `Agent` / `Plan`。');
+
+  if (loaded.length) {
+    lines.push(`- 当前会话已加载过的 skill / workflow：${formatCommandEntries(loaded)}。如果下一步是在续跑这些流程，直接沿着现有上下文继续。`);
+  }
+
+  if (workflows.length) {
+    lines.push(`- 当前会话已出现过 workflow：${formatNames(workflows)}。如果任务在延续这些 workflow，优先继续现有流程而不是重开新流程。`);
+  }
+
+  if (resources.length && readMcpResourceAvailable) {
+    lines.push(`- 已知具体 MCP resource 时，优先直接 \`ReadMcpResource\`；当前会话已观测到：${formatMcpResources(resources)}。`);
+  } else if (resources.length) {
+    lines.push(`- 当前会话已观测到 MCP resources：${formatMcpResources(resources)}；如果宿主提供专门读取入口，优先直接读取这些资源。`);
+  }
+
+  if (listMcpResourcesAvailable || readMcpResourceAvailable) {
+    lines.push('- MCP specificity：已知 resource URI → `ReadMcpResource`；只知道 server / 想看资源目录 → `ListMcpResources`；连 server / resource 都不确定时再 `ToolSearch`。');
+  }
+
+  if (loadedDeferred.length) {
+    lines.push(`- 这些 deferred tools 已经通过 ToolSearch 加载过：${formatNames(loadedDeferred)}。如果下一步正好要用它们，直接调用，不要重复 ToolSearch。`);
+  }
+
+  if (availableDeferred.length) {
+    lines.push(`- 这些 deferred tools 已 surfaced：${formatNames(availableDeferred)}。需要它们时优先精确 ToolSearch，而不是先泛化到更宽的 agent 路径。`);
+  }
+
+  return lines;
+}
+
 function buildSkillWorkflowLines(sessionContext = {}) {
   const skillToolAvailable = Boolean(sessionContext?.skillToolAvailable);
   const discoverSkillsAvailable = Boolean(sessionContext?.discoverSkillsAvailable);
   const surfaced = surfacedSkills(sessionContext);
-  const loaded = loadedCommands(sessionContext);
+  const loaded = loadedCommandEntries(sessionContext);
+  const workflows = workflowNames(sessionContext);
 
-  if (!skillToolAvailable && !discoverSkillsAvailable && surfaced.length === 0 && loaded.length === 0) {
+  if (
+    !skillToolAvailable &&
+    !discoverSkillsAvailable &&
+    surfaced.length === 0 &&
+    loaded.length === 0 &&
+    workflows.length === 0
+  ) {
     return [];
   }
 
@@ -114,14 +242,46 @@ function buildSkillWorkflowLines(sessionContext = {}) {
   }
 
   if (loaded.length) {
-    lines.push(`- 当前会话已加载过的 skill / workflow：${formatNames(loaded)}。如果你正在延续这些流程，直接沿着现有上下文继续，不要重复发现或重复加载。`);
+    lines.push(`- 当前会话已加载过的 skill / workflow：${formatCommandEntries(loaded)}。如果你正在延续这些流程，直接沿着现有上下文继续，不要重复发现或重复加载。`);
+  }
+
+  if (workflows.length) {
+    lines.push(`- 当前会话已出现过的 workflow：${formatNames(workflows)}。如果你正在延续这些 workflow，优先沿用当前连续体。`);
   }
 
   if (skillToolAvailable && discoverSkillsAvailable) {
     lines.push('- `DiscoverSkills` 用于 skill / workflow 发现；`ToolSearch` 用于工具 / MCP / 权限边界发现。');
   }
 
+  if (surfacedSkillEntries(sessionContext).some((entry) => entry.description)) {
+    lines.push('- surfaced skill 只是在当前回合提醒“有哪些现成流程”；真正执行时仍应通过 `Skill` 进入对应流程。');
+  }
+
   return lines;
+}
+
+function buildAgentSurfaceLines(sessionContext = {}) {
+  const surfaces = observedAgentSurfaces(detectedAgents(sessionContext));
+  if (surfaces.length === 0) return [];
+
+  return [
+    '## 内建 Agent 能力面',
+    ...surfaces.map((surface) => {
+      if (surface.key === 'Explore') {
+        return '- `Explore`：只读搜索；优先 `Glob/Grep/Read` 与只读 shell，不做编辑。';
+      }
+      if (surface.key === 'Plan') {
+        return '- `Plan`：只读规划；工具面基本继承 `Explore`，输出计划而不是改文件。';
+      }
+      if (surface.key === 'general-purpose') {
+        return '- `General-Purpose`：全工具面 `*`；适合边界清晰的实现、修复、验证切片。';
+      }
+      if (surface.key === 'claude-code-guide') {
+        return '- `Claude Code Guide`：本地读搜 + `WebFetch` + `WebSearch`；适合 Claude Code / API / SDK / MCP 能力问题。';
+      }
+      return `- \`${surface.label}\`：${surface.role}；工具面 ${surface.toolSurface.join(' / ')}。`;
+    }),
+  ];
 }
 
 function buildToolSearchLines() {
@@ -192,9 +352,13 @@ export function buildSessionStartContext(sessionContext = {}) {
     '',
     ...buildWorkingHabitLines(),
     '',
+    ...buildSpecificityLines(sessionContext),
+    '',
     ...buildSkillWorkflowLines(sessionContext),
     '',
     ...buildObservedSurfaceLines(sessionContext),
+    '',
+    ...buildAgentSurfaceLines(sessionContext),
     '',
     ...buildToolSearchLines(),
     '',
