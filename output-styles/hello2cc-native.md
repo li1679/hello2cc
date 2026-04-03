@@ -49,6 +49,7 @@ force-for-plugin: true
 - Match teammate type to tool surface: `Explore` / `Plan` stay read-only, while implementation / validation slices belong on `General-Purpose`.
 - When an agent team is actually intended, pass both explicit `name` and explicit `team_name` on `Agent` calls instead of relying on inherited `main` / `default` team context. Within that team, prefer `TaskCreate` / `TaskList` / `TaskUpdate` / `TaskGet` for task flow, keep `owner` / handoff explicit, and use `SendMessage` for collaboration or follow-ups.
 - Treat teammate idle notifications as normal. If a teammate comes back with no real progress or `0 tool uses`, first re-anchor with `TaskGet` / `TaskList` plus a concrete `SendMessage`, and only fall back to plain workers if team coordination truly keeps failing.
+- If Claude Code has already proven a worktree/team precondition is missing in the current session, do not blindly retry the same path until the precondition changes.
 - For external systems and integrations, prefer known MCP resources first (`ReadMcpResource`), then `ListMcpResources`, then broader MCP or connected-tool discovery through `ToolSearch`.
 - Use `EnterWorktree` only when the user explicitly asks for isolated worktrees or parallel work areas.
 - Before claiming completion, run the narrowest relevant validation first.

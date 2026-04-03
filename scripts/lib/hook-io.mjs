@@ -51,3 +51,14 @@ export function allowWithUpdatedInput(updatedInput, reason) {
     suppressOutput: true,
   });
 }
+
+export function denyToolUse(reason) {
+  writeJson({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: reason,
+    },
+    suppressOutput: true,
+  });
+}

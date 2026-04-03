@@ -144,10 +144,35 @@ function validateHooks() {
   }
 
   const hasAgentHook = preToolUse.some((entry) => entry.matcher === 'Agent');
-  if (!hasAgentHook) {
-    fail('hooks.json should inject model on PreToolUse matcher Agent');
+  const hasEnterWorktreeHook = preToolUse.some((entry) => entry.matcher === 'EnterWorktree');
+  if (!hasAgentHook || !hasEnterWorktreeHook) {
+    fail('hooks.json should define PreToolUse hooks for Agent and EnterWorktree');
   } else {
     ok('hooks Agent pretool injection');
+  }
+
+  const postToolUse = hooks.hooks.PostToolUse;
+  if (!Array.isArray(postToolUse)) {
+    fail('hooks.json should define PostToolUse hooks');
+  } else {
+    const postMatchers = new Set(postToolUse.map((entry) => entry.matcher));
+    if (!postMatchers.has('TeamCreate') || !postMatchers.has('TeamDelete') || !postMatchers.has('Agent')) {
+      fail('hooks.json should track TeamCreate, TeamDelete, and Agent success via PostToolUse');
+    } else {
+      ok('hooks PostToolUse coverage');
+    }
+  }
+
+  const postToolUseFailure = hooks.hooks.PostToolUseFailure;
+  if (!Array.isArray(postToolUseFailure)) {
+    fail('hooks.json should define PostToolUseFailure hooks');
+  } else {
+    const failureMatchers = new Set(postToolUseFailure.map((entry) => entry.matcher));
+    if (!failureMatchers.has('Agent') || !failureMatchers.has('EnterWorktree')) {
+      fail('hooks.json should track Agent and EnterWorktree failures via PostToolUseFailure');
+    } else {
+      ok('hooks PostToolUseFailure coverage');
+    }
   }
 
   const configChange = hooks.hooks.ConfigChange;

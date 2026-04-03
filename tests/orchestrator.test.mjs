@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -1259,6 +1259,268 @@ test('pre-agent-model makes team_name explicit for explicit team workflows', () 
   assert.equal(output.hookSpecificOutput.updatedInput.name, 'researcher');
   assert.equal(output.hookSpecificOutput.updatedInput.team_name, 'research-squad');
   assert.match(output.hookSpecificOutput.permissionDecisionReason, /made Agent\.team_name explicit/);
+});
+
+test('post-tool-failure records non-git worktree failures and pre-agent-model fail-closes repeated worktree retries', () => {
+  const env = isolatedEnv();
+
+  const failure = run('post-tool-failure', {
+    session_id: 'worktree-precondition',
+    cwd: 'C:\\Users\\hellowind\\Downloads',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'claude-code-guide',
+      isolation: 'worktree',
+    },
+    error: 'Cannot create agent worktree: not in a git repository and no WorktreeCreate hooks are configured. Configure WorktreeCreate/WorktreeRemove hooks in settings.json to use worktree isolation with other VCS systems.',
+  }, env);
+  assert.deepEqual(failure, { suppressOutput: true });
+
+  const blocked = run('pre-agent-model', {
+    session_id: 'worktree-precondition',
+    cwd: 'C:\\Users\\hellowind\\Downloads',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'claude-code-guide',
+      isolation: 'worktree',
+    },
+  }, env);
+
+  assert.equal(blocked.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(blocked.hookSpecificOutput.permissionDecisionReason, /blocked repeated worktree isolation/i);
+
+  const differentCwd = run('pre-agent-model', {
+    session_id: 'worktree-precondition',
+    cwd: 'D:\\GitHub\\dev\\hello2cc',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'claude-code-guide',
+      isolation: 'worktree',
+    },
+  }, env);
+
+  assert.equal(differentCwd.hookSpecificOutput.permissionDecision, 'allow');
+  assert.equal(differentCwd.hookSpecificOutput.updatedInput.isolation, undefined);
+  assert.match(differentCwd.hookSpecificOutput.permissionDecisionReason, /removed Agent\.isolation=worktree/);
+});
+
+test('pre-agent-model auto-unblocks stale worktree failures after the cwd becomes a git repo', () => {
+  const env = isolatedEnv();
+  const repoDir = join(env.HOME, 'repo');
+  mkdirSync(join(repoDir, '.git'), { recursive: true });
+
+  run('route', {
+    session_id: 'worktree-recovered-git',
+    cwd: repoDir,
+    prompt: 'Use a git worktree for an isolated worktree while changing this feature.',
+  }, env);
+
+  run('post-tool-failure', {
+    session_id: 'worktree-recovered-git',
+    cwd: repoDir,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      isolation: 'worktree',
+    },
+    error: 'Cannot create agent worktree: not in a git repository and no WorktreeCreate hooks are configured. Configure WorktreeCreate/WorktreeRemove hooks in settings.json to use worktree isolation with other VCS systems.',
+  }, env);
+
+  const output = run('pre-agent-model', {
+    session_id: 'worktree-recovered-git',
+    cwd: repoDir,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      isolation: 'worktree',
+    },
+  }, env);
+
+  assert.deepEqual(output, { suppressOutput: true });
+});
+
+test('post-tool-failure records missing teams and pre-agent-model fail-closes repeated teammate retries', () => {
+  const env = isolatedEnv();
+
+  run('route', {
+    session_id: 'missing-team-precondition',
+    prompt: 'Use TeamCreate and teammates to coordinate research and implementation in parallel.',
+  }, env);
+
+  const failure = run('post-tool-failure', {
+    session_id: 'missing-team-precondition',
+    cwd: 'D:\\GitHub\\dev\\hello2cc',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      team_name: 'delivery-squad',
+      name: 'frontend-owner',
+    },
+    error: 'Team "delivery-squad" does not exist. Call spawnTeam first to create the team.',
+  }, env);
+  assert.deepEqual(failure, { suppressOutput: true });
+
+  const blocked = run('pre-agent-model', {
+    session_id: 'missing-team-precondition',
+    cwd: 'D:\\GitHub\\dev\\hello2cc',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      team_name: 'delivery-squad',
+      name: 'frontend-owner',
+    },
+  }, env);
+
+  assert.equal(blocked.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(blocked.hookSpecificOutput.permissionDecisionReason, /known missing in this session/i);
+  assert.match(blocked.hookSpecificOutput.permissionDecisionReason, /TeamCreate|plain non-team subagent/i);
+});
+
+test('post-tool-use clears known-missing team failures after TeamCreate succeeds', () => {
+  const env = isolatedEnv({
+    CLAUDE_PLUGIN_OPTION_TEAM_MODEL: 'sonnet',
+  });
+
+  run('route', {
+    session_id: 'missing-team-cleared',
+    prompt: 'Coordinate frontend and backend ownership across agents with shared task handoffs.',
+  }, env);
+
+  run('post-tool-failure', {
+    session_id: 'missing-team-cleared',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      team_name: 'delivery-squad',
+      name: 'frontend-owner',
+    },
+    error: 'Team "delivery-squad" does not exist. Call spawnTeam first to create the team.',
+  }, env);
+
+  run('post-tool-use', {
+    session_id: 'missing-team-cleared',
+    tool_name: 'TeamCreate',
+    tool_input: {
+      team_name: 'delivery-squad',
+    },
+    tool_response: {
+      team_name: 'delivery-squad',
+    },
+  }, env);
+
+  const output = run('pre-agent-model', {
+    session_id: 'missing-team-cleared',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      team_name: 'delivery-squad',
+      name: 'frontend-owner',
+    },
+  }, env);
+
+  assert.equal(output.hookSpecificOutput.updatedInput.model, 'sonnet');
+  assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
+});
+
+test('post-tool-use records deleted teams as unavailable until recreated', () => {
+  const env = isolatedEnv();
+
+  run('route', {
+    session_id: 'deleted-team-precondition',
+    prompt: 'Use TeamCreate and teammates to coordinate research and implementation in parallel.',
+  }, env);
+
+  run('post-tool-use', {
+    session_id: 'deleted-team-precondition',
+    tool_name: 'TeamDelete',
+    tool_input: {
+      team_name: 'delivery-squad',
+    },
+    tool_response: {
+      team_name: 'delivery-squad',
+    },
+  }, env);
+
+  const blocked = run('pre-agent-model', {
+    session_id: 'deleted-team-precondition',
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      team_name: 'delivery-squad',
+      name: 'frontend-owner',
+    },
+  }, env);
+
+  assert.equal(blocked.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(blocked.hookSpecificOutput.permissionDecisionReason, /known missing in this session/i);
+});
+
+test('post-tool-failure records non-git EnterWorktree failures and pre-enter-worktree fail-closes repeated retries', () => {
+  const env = isolatedEnv();
+
+  run('post-tool-failure', {
+    session_id: 'enter-worktree-precondition',
+    cwd: 'C:\\Users\\hellowind\\Downloads',
+    tool_name: 'EnterWorktree',
+    tool_input: {
+      name: 'sandbox',
+    },
+    error: 'Cannot create a worktree: not in a git repository and no WorktreeCreate hooks are configured. Configure WorktreeCreate/WorktreeRemove hooks in settings.json to use worktree isolation with other VCS systems.',
+  }, env);
+
+  const blocked = run('pre-enter-worktree', {
+    session_id: 'enter-worktree-precondition',
+    cwd: 'C:\\Users\\hellowind\\Downloads',
+    tool_name: 'EnterWorktree',
+    tool_input: {
+      name: 'sandbox',
+    },
+  }, env);
+
+  assert.equal(blocked.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(blocked.hookSpecificOutput.permissionDecisionReason, /blocked repeated EnterWorktree retry/i);
+});
+
+test('pre-enter-worktree auto-unblocks stale failures after WorktreeCreate hooks are configured', () => {
+  const env = isolatedEnv();
+  const projectDir = join(env.HOME, 'project');
+  mkdirSync(join(projectDir, '.claude'), { recursive: true });
+  writeFileSync(join(projectDir, '.claude', 'settings.local.json'), JSON.stringify({
+    hooks: {
+      WorktreeCreate: [
+        {
+          matcher: '',
+          hooks: [
+            {
+              type: 'command',
+              command: 'echo ready',
+            },
+          ],
+        },
+      ],
+    },
+  }, null, 2));
+
+  run('post-tool-failure', {
+    session_id: 'enter-worktree-recovered-hooks',
+    cwd: projectDir,
+    tool_name: 'EnterWorktree',
+    tool_input: {
+      name: 'sandbox',
+    },
+    error: 'Cannot create a worktree: not in a git repository and no WorktreeCreate hooks are configured. Configure WorktreeCreate/WorktreeRemove hooks in settings.json to use worktree isolation with other VCS systems.',
+  }, env);
+
+  const output = run('pre-enter-worktree', {
+    session_id: 'enter-worktree-recovered-hooks',
+    cwd: projectDir,
+    tool_name: 'EnterWorktree',
+    tool_input: {
+      name: 'sandbox',
+    },
+  }, env);
+
+  assert.deepEqual(output, { suppressOutput: true });
 });
 
 test('pre-agent-model blocks implicit assistant team names even for team workflows until a real team exists', () => {

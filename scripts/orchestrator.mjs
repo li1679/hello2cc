@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { normalizeAgentIsolation, normalizeAgentTeamSemantics } from './lib/agent-input.mjs';
+import { normalizeAgentIsolation, normalizeAgentTeamSemantics, normalizeEnterWorktreeInput } from './lib/agent-input.mjs';
 import { configuredModels, shouldEmitAdditionalContext } from './lib/config.mjs';
 import { resolvedAgentModelOverride } from './lib/agent-models.mjs';
 import {
   allowWithUpdatedInput,
+  denyToolUse,
   emptySuppress,
   maybeDumpPayload,
   readStdinJson,
@@ -14,6 +15,8 @@ import { normalizeSendMessageInput } from './lib/send-message-input.mjs';
 import {
   clearAllSessionContexts,
   clearSessionContext,
+  rememberToolFailure,
+  rememberToolSuccess,
   rememberSessionContext,
   rememberPromptSignals,
   readSessionContext,
@@ -80,7 +83,17 @@ async function cmdPreAgentModel() {
   }
 
   const teamNormalization = normalizeAgentTeamSemantics(input, sessionContext);
+  if (teamNormalization.blocked) {
+    denyToolUse(teamNormalization.reason);
+    return;
+  }
+
   const isolationNormalization = normalizeAgentIsolation(teamNormalization.input, sessionContext);
+  if (isolationNormalization.blocked) {
+    denyToolUse(isolationNormalization.reason);
+    return;
+  }
+
   const override = resolvedAgentModelOverride(isolationNormalization.input, configuredModels(sessionContext));
   if (!override.model && !teamNormalization.changed && !isolationNormalization.changed) {
     emptySuppress();
@@ -101,6 +114,25 @@ async function cmdPreAgentModel() {
     updatedInput,
     reasons.join('; '),
   );
+}
+
+async function cmdPreEnterWorktree() {
+  const payload = readStdinJson('orchestrator.mjs');
+  const sessionContext = currentSessionContext(payload);
+  const input = payload.tool_input || {};
+
+  if (payload.tool_name && payload.tool_name !== 'EnterWorktree') {
+    emptySuppress();
+    return;
+  }
+
+  const normalization = normalizeEnterWorktreeInput(input, sessionContext);
+  if (normalization.blocked) {
+    denyToolUse(normalization.reason);
+    return;
+  }
+
+  emptySuppress();
 }
 
 async function cmdPreSendMessage() {
@@ -138,6 +170,18 @@ async function cmdConfigChange() {
   emptySuppress();
 }
 
+async function cmdPostToolFailure() {
+  const payload = readStdinJson('orchestrator.mjs');
+  rememberToolFailure(payload);
+  emptySuppress();
+}
+
+async function cmdPostToolUse() {
+  const payload = readStdinJson('orchestrator.mjs');
+  rememberToolSuccess(payload);
+  emptySuppress();
+}
+
 async function main() {
   switch (cmd) {
     case 'session-start':
@@ -149,11 +193,20 @@ async function main() {
     case 'pre-agent-model':
       await cmdPreAgentModel();
       break;
+    case 'pre-enter-worktree':
+      await cmdPreEnterWorktree();
+      break;
     case 'pre-send-message':
       await cmdPreSendMessage();
       break;
     case 'config-change':
       await cmdConfigChange();
+      break;
+    case 'post-tool-failure':
+      await cmdPostToolFailure();
+      break;
+    case 'post-tool-use':
+      await cmdPostToolUse();
       break;
     default:
       process.stderr.write(`orchestrator.mjs: unknown command "${cmd}"\n`);

@@ -147,6 +147,7 @@ function buildWorkingHabitLines() {
     '- 选择 teammate 时遵守原生 agent 工具面：`Explore` / `Plan` 只读，只做搜索或规划；需要改文件、联调、验证的切片交给 `General-Purpose`。',
     '- 真正需要 agent team 时，后续 `Agent` 要显式传入 `name` + `team_name`；团队内任务流转优先 `TaskCreate` / `TaskList` / `TaskUpdate` / `TaskGet`，分派和接力时显式维护 `owner`，补充协作或续派时再 `SendMessage`；完成后及时 `TeamDelete`。不要依赖 `main` / `default` 这类隐式 team 上下文。',
     '- teammate 每回合结束后变成 idle 是正常行为，不等于失败；如果某个 teammate 出现 `0 tool uses`、没有实质推进或 task 失配，优先用 `TaskGet` / `TaskList` + `SendMessage` 在团队内重对齐，而不是立刻判定 team 路径失效。',
+    '- 如果同一个前提错误已经出现过一次（例如当前 cwd 不是 git 仓库却尝试 worktree，或某个 team 已确认不存在），在前提变化前不要沿着同一路径原样重试；前提一旦恢复（例如切到 git 仓库、补好 WorktreeCreate hooks、重新建 team），再继续原生路径。',
     '- 普通 worker 的结果默认看完成通知 / 回传消息，不要把 `TaskOutput` 当成普通 worker 的默认结果获取方式。',
     '- 纯文本 `SendMessage` 最好带简短 `summary` 预览；如果忘了带，hello2cc 会尽量补齐兼容层，避免踩到宿主校验坑。',
     '- 外部系统与集成优先原生 MCP / connected tools，优先 `ListMcpResources` / `ReadMcpResource`。',

@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.3.3 - 2026-04-03
+
+- 修复 worktree 前提失败后在同一 session 中拦截过于保守的问题，避免环境已恢复后仍持续 deny
+- 当当前 cwd 已进入 git 仓库，或已补上 `WorktreeCreate` hooks 时，自动解除陈旧的 worktree 失败记忆，恢复原生 `EnterWorktree` / `Agent(isolation=worktree)` 路径
+- 继续保持只对宿主已明确证明不成立的确定性前提错误执行 fail-closed，减少机械重试，同时不影响正常原生工具与 agent 使用
+
 ## 0.3.2 - 2026-04-03
 
 - 强化持续协作型多 agent 任务的原生 team 路径，先建团队、再建 task board、再派 teammate，减少团队刚启动就跑偏
