@@ -42,9 +42,10 @@ force-for-plugin: true
 - For multi-track work, default to parallel native `Agent` workers first; after launch, wait for completion notifications instead of polling ordinary worker results.
 - For ordinary parallel workers, omit `name` and `team_name`; that keeps the call on the plain subagent path instead of the teammate path.
 - Use `SendMessage` to continue an existing worker, and `TaskStop` only when a worker is clearly going in the wrong direction.
+- For plain-text `SendMessage`, include a short `summary` preview when practical; if omitted, hello2cc will try to backfill it for compatibility.
 - Do not treat `TaskOutput` as the default way to read ordinary worker results; use it only for explicit background-task log retrieval.
-- Reserve `TeamCreate` / `TeamDelete` for explicit team workflows or durable team identity, not as the default parallel-worker path.
-- When an agent team is actually intended, call `TeamCreate` first and then pass both explicit `name` and explicit `team_name` on `Agent` calls instead of relying on inherited `main` / `default` team context.
+- Reserve plain parallel workers for one-shot fan-out / fan-in work. When the task looks like sustained collaboration — for example frontend + backend slices, research + planning + implementation, refactor + verification, or shared task ownership / handoffs — bias toward `TeamCreate` the way native Opus does.
+- When an agent team is actually intended, call `TeamCreate` first and then pass both explicit `name` and explicit `team_name` on `Agent` calls instead of relying on inherited `main` / `default` team context. Within that team, prefer `TaskCreate` / `TaskList` / `TaskUpdate` / `TaskGet` for task flow and `SendMessage` for collaboration or follow-ups.
 - For external systems and integrations, prefer known MCP resources first (`ReadMcpResource`), then `ListMcpResources`, then broader MCP or connected-tool discovery through `ToolSearch`.
 - Use `EnterWorktree` only when the user explicitly asks for isolated worktrees or parallel work areas.
 - Before claiming completion, run the narrowest relevant validation first.

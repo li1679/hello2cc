@@ -529,7 +529,21 @@ test('route keeps codebase research on native search tools before agent escalati
   assert.doesNotMatch(context, /先 `ToolSearch`/);
 });
 
-test('route promotes TeamCreate only for explicit team workflows', () => {
+test('route keeps plain worker guidance for one-shot parallel fan-out work', () => {
+  const env = isolatedEnv();
+  const output = run('route', {
+    session_id: 'route-plain-workers',
+    prompt: 'Use subagent workers in parallel to inspect three modules and report back.',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /并行发起多个原生 `Agent` worker/);
+  assert.match(context, /不要给普通 worker 传 `name` 或 `team_name`/);
+  assert.doesNotMatch(context, /更接近 Claude Code 原生 team 语义/);
+  assert.doesNotMatch(context, /TeamCreate/);
+});
+
+test('route promotes TeamCreate for explicit team workflows', () => {
   const env = isolatedEnv();
   const output = run('route', {
     session_id: 'route-team',
@@ -542,6 +556,23 @@ test('route promotes TeamCreate only for explicit team workflows', () => {
   assert.match(context, /SendMessage/);
   assert.match(context, /TeamDelete/);
   assert.doesNotMatch(context, /TaskOutput/);
+});
+
+test('route proactively promotes TeamCreate for sustained collaboration tasks', () => {
+  const env = isolatedEnv();
+  const output = run('route', {
+    session_id: 'route-proactive-team',
+    prompt: 'Build a frontend and backend feature, coordinate ownership across agents, and keep shared task handoffs clear.',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+
+  assert.match(context, /更接近 Claude Code 原生 team 语义/);
+  assert.match(context, /TeamCreate/);
+  assert.match(context, /TaskCreate/);
+  assert.match(context, /TaskList/);
+  assert.match(context, /TaskUpdate/);
+  assert.match(context, /TaskGet/);
+  assert.match(context, /SendMessage/);
 });
 
 test('route promotes General-Purpose for bounded implementation slices', () => {
@@ -827,7 +858,7 @@ test('pre-agent-model mirrors the current session model for Explore by default',
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
 });
 
-test('pre-agent-model only injects team model for explicit team workflows', () => {
+test('pre-agent-model only injects team model for team-oriented workflows', () => {
   const env = isolatedEnv();
   const nativeOutput = run(
     'pre-agent-model',
@@ -846,13 +877,151 @@ test('pre-agent-model only injects team model for explicit team workflows', () =
 
   run('route', {
     session_id: 'team-model',
-    prompt: 'Use TeamCreate and teammates to coordinate research and implementation in parallel.',
+    prompt: 'Coordinate frontend and backend ownership across agents with shared task handoffs.',
   }, env);
 
   const output = run(
     'pre-agent-model',
     {
       session_id: 'team-model',
+      tool_name: 'Agent',
+      tool_input: {
+        team_name: 'delivery-squad',
+      },
+    },
+    {
+      ...env,
+      CLAUDE_PLUGIN_OPTION_TEAM_MODEL: 'sonnet',
+    },
+  );
+
+  assert.equal(output.hookSpecificOutput.updatedInput.model, 'sonnet');
+});
+
+test('pre-agent-model keeps plain worker semantics even with active team context when the prompt is not team-oriented', () => {
+  const env = isolatedEnv();
+  const sessionId = 'plain-subagent-team-context';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      teamName: 'design-squad',
+      agentName: 'team-lead',
+    },
+  ]);
+
+  run('route', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    prompt: 'Use subagent workers in parallel to inspect three modules and report back.',
+  }, env);
+
+  const output = run('pre-agent-model', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'Explore',
+      name: 'module-reader',
+    },
+  }, env);
+
+  assert.equal(output.hookSpecificOutput.updatedInput.name, undefined);
+  assert.equal(output.hookSpecificOutput.updatedInput.team_name, undefined);
+  assert.match(output.hookSpecificOutput.permissionDecisionReason, /plain subagent semantics/);
+});
+
+test('pre-agent-model makes team_name explicit for proactive team workflows', () => {
+  const env = isolatedEnv();
+  const sessionId = 'proactive-team-workflow';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      teamName: 'delivery-squad',
+      agentName: 'team-lead',
+    },
+  ]);
+
+  run('route', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    prompt: 'Coordinate frontend and backend ownership across agents with shared task handoffs.',
+  }, env);
+
+  const output = run('pre-agent-model', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      name: 'frontend-owner',
+    },
+  }, env);
+
+  assert.equal(output.hookSpecificOutput.updatedInput.name, 'frontend-owner');
+  assert.equal(output.hookSpecificOutput.updatedInput.team_name, 'delivery-squad');
+  assert.match(output.hookSpecificOutput.permissionDecisionReason, /made Agent\.team_name explicit/);
+});
+
+test('pre-send-message injects a summary for plain-text messages', () => {
+  const env = isolatedEnv();
+  const output = run('pre-send-message', {
+    session_id: 'send-message-summary',
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'agent-a1b',
+      message: 'Fix the null pointer in src/auth/validate.ts:42 and rerun the focused tests.',
+    },
+  }, env);
+
+  assert.match(output.hookSpecificOutput.updatedInput.summary, /Fix the null pointer/i);
+  assert.match(output.hookSpecificOutput.permissionDecisionReason, /SendMessage\.summary/);
+});
+
+test('pre-send-message preserves existing summaries and structured messages', () => {
+  const env = isolatedEnv();
+
+  const withSummary = run('pre-send-message', {
+    session_id: 'send-message-summary-existing',
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'agent-a1b',
+      summary: 'fix auth bug',
+      message: 'Fix the null pointer in src/auth/validate.ts:42.',
+    },
+  }, env);
+  assert.deepEqual(withSummary, { suppressOutput: true });
+
+  const structured = run('pre-send-message', {
+    session_id: 'send-message-structured',
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'team-lead',
+      message: {
+        type: 'shutdown_request',
+      },
+    },
+  }, env);
+  assert.deepEqual(structured, { suppressOutput: true });
+});
+
+test('pre-agent-model only injects team model for explicit team_name in team-oriented workflows', () => {
+  const env = isolatedEnv();
+
+  run('route', {
+    session_id: 'team-model-explicit',
+    prompt: 'Use TeamCreate and teammates to coordinate research and implementation in parallel.',
+  }, env);
+
+  const output = run(
+    'pre-agent-model',
+    {
+      session_id: 'team-model-explicit',
       tool_name: 'Agent',
       tool_input: {
         team_name: 'delivery-squad',
@@ -988,41 +1157,6 @@ test('pre-agent-model can discover the current session model from transcript_pat
   }, env);
 
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
-});
-
-test('pre-agent-model strips ambiguous teammate fields for plain subagent prompts even with active team context', () => {
-  const env = isolatedEnv();
-  const sessionId = 'plain-subagent-team-context';
-  const transcriptPath = writeTranscript(env.HOME, sessionId, {
-    model: 'opus',
-  }, [
-    {
-      type: 'assistant',
-      session_id: sessionId,
-      teamName: 'design-squad',
-      agentName: 'team-lead',
-    },
-  ]);
-
-  run('route', {
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    prompt: 'Use subagent workers in parallel to inspect three modules and report back.',
-  }, env);
-
-  const output = run('pre-agent-model', {
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    tool_name: 'Agent',
-    tool_input: {
-      subagent_type: 'Explore',
-      name: 'module-reader',
-    },
-  }, env);
-
-  assert.equal(output.hookSpecificOutput.updatedInput.name, undefined);
-  assert.equal(output.hookSpecificOutput.updatedInput.team_name, undefined);
-  assert.match(output.hookSpecificOutput.permissionDecisionReason, /plain subagent semantics/);
 });
 
 test('pre-agent-model strips reserved assistant team names for ordinary prompts', () => {

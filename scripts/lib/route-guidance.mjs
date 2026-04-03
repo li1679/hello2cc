@@ -69,7 +69,17 @@ function buildSwarmStep(signals) {
     return [
       `用户显式要求团队编排：用 \`TeamCreate\` 建立持久团队来推进 ${trackList}。`,
       '等 `TeamCreate` 产出真实团队后，后续 `Agent` 调用再显式传入 `name` + `team_name`；不要依赖 `main` / `default` 这类隐式 team 上下文。',
-      '团队成员已启动后，补充指令、修正范围或续派时用 `SendMessage`。',
+      '团队成员已启动后，任务流转优先 `TaskCreate` / `TaskList` / `TaskUpdate` / `TaskGet`，补充协作、修正范围或续派时用 `SendMessage`。',
+      '团队完成后用 `TeamDelete` 清理。',
+    ].join(' ');
+  }
+
+  if (signals.proactiveTeamWorkflow) {
+    return [
+      `这是持续协作型多 agent 任务：更接近 Claude Code 原生 team 语义，优先主动用 \`TeamCreate\` 建立持久团队来推进 ${trackList}。`,
+      '当任务需要共享 task list、任务 owner、多轮续派或 teammate 之间协作时，不要只停留在一次性 plain worker。',
+      '先 `TeamCreate`，再让后续 `Agent` 显式传入 `name` + `team_name` 加入团队；团队内任务流转优先 `TaskCreate` / `TaskList` / `TaskUpdate` / `TaskGet`，补充协作用 `SendMessage`。',
+      '如果只是一次性 fan-out / fan-in，且不需要持久协作或共享任务状态，才退回普通并行 worker。',
       '团队完成后用 `TeamDelete` 清理。',
     ].join(' ');
   }
@@ -79,7 +89,7 @@ function buildSwarmStep(signals) {
     '普通并行 worker 走 plain subagent 路径：不要给普通 worker 传 `name` 或 `team_name`，避免被宿主误判为 teammate。',
     '研究 / 定位 slice 优先 `Explore`（只读搜索）；规划 slice 优先 `Plan`（只读规划）；边界清晰的实现 / 验证 slice 优先 `General-Purpose`（全工具面）。',
     '启动后简短告诉用户已启动哪些 worker，然后等待完成通知 / 回传消息，不要立刻轮询普通 agent 结果。',
-    '需要补充指令或续派时用 `SendMessage`；如果某个 worker 明显走错方向，再用 `TaskStop`。',
+    '需要补充指令或续派时用 `SendMessage`；纯文本 `SendMessage` 最好带简短 `summary` 预览；如果某个 worker 明显走错方向，再用 `TaskStop`。',
     '不要把 `TaskOutput` 当成普通 worker 的默认结果获取方式；它更适合明确的后台任务日志读取。',
   ].join(' ');
 }

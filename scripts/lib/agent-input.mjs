@@ -25,7 +25,11 @@ export function normalizeAgentTeamSemantics(input = {}, sessionContext = {}) {
   const workerName = trimmed(input?.name);
   const explicitTeamName = trimmed(input?.team_name);
   const activeTeamName = trimmed(sessionContext?.teamName);
-  const teamWorkflow = Boolean(sessionContext?.lastPromptSignals?.teamWorkflow);
+  const teamSemantics = Boolean(
+    sessionContext?.lastPromptSignals?.teamSemantics ||
+    sessionContext?.lastPromptSignals?.teamWorkflow ||
+    sessionContext?.lastPromptSignals?.proactiveTeamWorkflow,
+  );
   const hasTeamSemantics = Boolean(workerName || explicitTeamName);
   const activeTeamIsImplicit = isImplicitAssistantTeamName(activeTeamName);
   const explicitTeamIsImplicit = isImplicitAssistantTeamName(explicitTeamName);
@@ -34,11 +38,11 @@ export function normalizeAgentTeamSemantics(input = {}, sessionContext = {}) {
     return { input, changed: false, reason: '' };
   }
 
-  if (!teamWorkflow) {
+  if (!teamSemantics) {
     return {
       input: stripAgentTeamFields(input),
       changed: true,
-      reason: 'hello2cc normalized Agent to plain subagent semantics by removing implicit team fields outside explicit team workflows',
+      reason: 'hello2cc normalized Agent to plain subagent semantics by removing implicit team fields outside team-oriented workflows',
     };
   }
 

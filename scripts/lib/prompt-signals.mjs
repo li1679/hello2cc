@@ -124,6 +124,29 @@ const TEAM_WORKFLOW_PATTERNS = [
   /持久团队/,
 ];
 
+const TEAM_COORDINATION_PATTERNS = [
+  /work together/,
+  /coordinate/,
+  /coordination/,
+  /collaborat/,
+  /team lead/,
+  /shared task list/,
+  /task ownership/,
+  /claim tasks?/,
+  /assign tasks?/,
+  /handoff/,
+  /teammates?/,
+  /协调/,
+  /协作/,
+  /团队分工/,
+  /任务分派/,
+  /共享任务/,
+  /任务归属/,
+  /认领任务/,
+  /交接/,
+  /接力/,
+];
+
 const VERIFY_PATTERNS = [
   /test/,
   /verify/,
@@ -435,14 +458,31 @@ export function classifyPrompt(prompt) {
   const backend = hasAny(text, BACKEND_PATTERNS);
   const complex = hasAny(text, COMPLEX_PATTERNS);
   const verify = hasAny(text, VERIFY_PATTERNS);
+  const planningIntent = hasAny(text, PLAN_PATTERNS);
   const multiTrackByStructure =
     (research && implement) ||
     (research && verify) ||
     (implement && verify) ||
     (frontend && backend);
-  const plan = complex || multiTrackByStructure || hasAny(text, PLAN_PATTERNS);
-  const swarm = hasAny(text, SWARM_PATTERNS) || multiTrackByStructure;
-  const teamWorkflow = hasAny(text, TEAM_WORKFLOW_PATTERNS);
+  const explicitTeamWorkflow = hasAny(text, TEAM_WORKFLOW_PATTERNS);
+  const coordinationHeavy = hasAny(text, TEAM_COORDINATION_PATTERNS);
+  const fullStackProject = frontend && backend && (implement || research || verify || complex);
+  const multiPhaseProject = research && implement && planningIntent;
+  const refactorProject = verify && hasAny(text, [
+    /refactor/,
+    /rewrite/,
+    /migrate/,
+    /重构/,
+    /重写/,
+    /迁移/,
+  ]);
+  const proactiveTeamWorkflow =
+    !explicitTeamWorkflow &&
+    (coordinationHeavy || fullStackProject || multiPhaseProject || refactorProject);
+  const teamSemantics = explicitTeamWorkflow || proactiveTeamWorkflow;
+  const plan = complex || multiTrackByStructure || planningIntent;
+  const swarm = hasAny(text, SWARM_PATTERNS) || multiTrackByStructure || teamSemantics;
+  const teamWorkflow = explicitTeamWorkflow;
   const decisionHeavy = hasQuestionIntent(text) && hasAny(text, DECISION_PATTERNS);
   const capabilityQuery = explicitHostFeature || (hasQuestionIntent(text) && hasAny(text, HOST_TOPIC_PATTERNS)) || mcp;
   const codeResearch = research && !capabilityQuery;
@@ -474,6 +514,8 @@ export function classifyPrompt(prompt) {
     currentInfo,
     swarm,
     teamWorkflow,
+    proactiveTeamWorkflow,
+    teamSemantics,
     verify,
     complex,
     tools: explicitHostFeature,

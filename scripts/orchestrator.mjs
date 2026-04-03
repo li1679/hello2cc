@@ -10,6 +10,7 @@ import {
   suppressHook,
 } from './lib/hook-io.mjs';
 import { buildRouteSteps, buildSessionStartContext, extractPromptText } from './lib/native-context.mjs';
+import { normalizeSendMessageInput } from './lib/send-message-input.mjs';
 import {
   clearAllSessionContexts,
   clearSessionContext,
@@ -102,6 +103,27 @@ async function cmdPreAgentModel() {
   );
 }
 
+async function cmdPreSendMessage() {
+  const payload = readStdinJson('orchestrator.mjs');
+  const input = payload.tool_input || {};
+
+  if (payload.tool_name && payload.tool_name !== 'SendMessage') {
+    emptySuppress();
+    return;
+  }
+
+  const normalization = normalizeSendMessageInput(input);
+  if (!normalization.changed) {
+    emptySuppress();
+    return;
+  }
+
+  allowWithUpdatedInput(
+    normalization.input,
+    normalization.reason,
+  );
+}
+
 async function cmdConfigChange() {
   const payload = readStdinJson('orchestrator.mjs');
   const source = String(payload?.source || '').trim();
@@ -126,6 +148,9 @@ async function main() {
       break;
     case 'pre-agent-model':
       await cmdPreAgentModel();
+      break;
+    case 'pre-send-message':
+      await cmdPreSendMessage();
       break;
     case 'config-change':
       await cmdConfigChange();

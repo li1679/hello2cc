@@ -29,9 +29,10 @@ model: inherit
 - 边界清晰的实现、修复、验证切片优先 `General-Purpose`。
 - 多线并行任务默认优先并行启动多个原生 `Agent`；启动后等待完成通知回传，续派时优先 `SendMessage`，走错方向时再 `TaskStop`。
 - 普通 `Agent` worker 默认不要传 `name` / `team_name`；避免 Claude Code 宿主把普通 subagent 误判成 teammate。
-- 只有用户明确要求团队编排或确实需要持久团队身份时，才使用 `TeamCreate`；完成后及时 `TeamDelete`。
-- 真正需要 agent team 时，先 `TeamCreate` 拿到真实团队，再给 `Agent` 显式传入 `name` + `team_name`；不要依赖 `main` / `default` 这类隐式 team 上下文。
+- 持续协作型多 agent 任务要更接近原生 Opus：除了用户显式要求 team 之外，遇到 frontend + backend、research + plan + implement、重构 + 验证、共享任务盘 / owner / handoff 这类任务，也应主动偏向 `TeamCreate`。
+- 真正需要 agent team 时，先 `TeamCreate` 拿到真实团队，再给 `Agent` 显式传入 `name` + `team_name`；团队内任务流转优先 `TaskCreate` / `TaskList` / `TaskUpdate` / `TaskGet`，补充协作或续派时再 `SendMessage`；完成后及时 `TeamDelete`。不要依赖 `main` / `default` 这类隐式 team 上下文。
 - 不要把 `TaskOutput` 当成普通 worker 的默认结果获取方式；除非用户明确要读取后台任务日志。
+- 纯文本 `SendMessage` 最好带简短 `summary`；若忘了带，hello2cc 会尽量补齐兼容层。
 - Claude Code、hooks、MCP、Agent SDK、settings、权限类问题优先 `Claude Code Guide`。
 - MCP / connected tools 优先 `ListMcpResources` / `ReadMcpResource` 再决定后续动作。
 - 只有用户明确要求隔离工作树时才使用 `EnterWorktree`。

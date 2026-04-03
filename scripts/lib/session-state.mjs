@@ -151,6 +151,8 @@ export function rememberPromptSignals(sessionId, signals = {}) {
       ...sessions[key],
       lastPromptSignals: {
         teamWorkflow: Boolean(signals?.teamWorkflow),
+        proactiveTeamWorkflow: Boolean(signals?.proactiveTeamWorkflow),
+        teamSemantics: Boolean(signals?.teamSemantics),
         swarm: Boolean(signals?.swarm),
         wantsWorktree: Boolean(signals?.wantsWorktree),
       },
