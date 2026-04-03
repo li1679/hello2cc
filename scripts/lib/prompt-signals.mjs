@@ -1,3 +1,30 @@
+import { buildTracks, deriveTeamSignals, hasQuestionIntent } from './prompt-signal-derive.mjs';
+import {
+  BACKEND_PATTERNS,
+  COMPLEX_PATTERNS,
+  CONTINUATION_PATTERNS,
+  CURRENT_INFO_PATTERNS,
+  DECISION_PATTERNS,
+  DIAGRAM_PATTERNS,
+  FRONTEND_PATTERNS,
+  GUIDE_PATTERNS,
+  HOST_FEATURE_PATTERNS,
+  HOST_TOPIC_PATTERNS,
+  IMPLEMENT_PATTERNS,
+  MCP_PATTERNS,
+  PLAN_PATTERNS,
+  RESEARCH_PATTERNS,
+  REVIEW_PATTERNS,
+  SKILL_DISCOVERY_PATTERNS,
+  SKILL_SURFACE_PATTERNS,
+  SWARM_PATTERNS,
+  TASK_LIST_PATTERNS,
+  TEAM_COORDINATION_PATTERNS,
+  TEAM_WORKFLOW_PATTERNS,
+  VERIFY_PATTERNS,
+  WORKTREE_PATTERNS,
+} from './prompt-signal-patterns.mjs';
+
 function normalizePrompt(text) {
   return String(text || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -5,437 +32,6 @@ function normalizePrompt(text) {
 function hasAny(text, patterns) {
   return patterns.some((pattern) => pattern.test(text));
 }
-
-function hasQuestionIntent(text) {
-  return hasAny(text, [
-    /\?/,
-    /^(can|does|do|how|why|what|which|when|where)\b/,
-    /\b(can|does|do|how|why|what|which|when|where)\b/,
-    /能不能/,
-    /如何/,
-    /怎么/,
-    /为什么/,
-    /是什么/,
-    /是否/,
-    /区别/,
-    /边界/,
-    /支持哪些/,
-  ]);
-}
-
-const DIAGRAM_PATTERNS = [
-  /ascii/,
-  /diagram/,
-  /draw/,
-  /visuali[sz]e/,
-  /flowchart/,
-  /sequence/,
-  /state machine/,
-  /workflow/,
-  /topology/,
-  /architecture/,
-  /table/,
-  /matrix/,
-  /架构图/,
-  /流程图/,
-  /时序图/,
-  /状态图/,
-  /拓扑图/,
-  /关系图/,
-  /示意图/,
-  /图表/,
-  /表格/,
-  /矩阵/,
-];
-
-const RESEARCH_PATTERNS = [
-  /research/,
-  /investigate/,
-  /compare/,
-  /explore/,
-  /docs?/,
-  /documentation/,
-  /how does/,
-  /why does/,
-  /what is/,
-  /can i/,
-  /support/,
-  /评估/,
-  /研究/,
-  /调研/,
-  /对比/,
-  /分析/,
-  /原理/,
-  /文档/,
-  /边界/,
-  /区别/,
-  /支持/,
-];
-
-const CURRENT_INFO_PATTERNS = [
-  /\b(latest|recent|recently|current|today|tonight|this week|this month|breaking)\b/,
-  /\b(news|headline|headlines|weather|forecast|price|pricing|stock|stocks|score|scores|release notes|changelog)\b/,
-  /最新/,
-  /最近/,
-  /近期/,
-  /当前/,
-  /今天/,
-  /今晚/,
-  /本周/,
-  /本月/,
-  /实时/,
-  /新闻/,
-  /头条/,
-  /天气/,
-  /价格/,
-  /股价/,
-  /比分/,
-  /汇率/,
-  /更新日志/,
-  /发布动态/,
-];
-
-const SWARM_PATTERNS = [
-  /parallel/,
-  /in parallel/,
-  /subagent/,
-  /多个模块/,
-  /并行/,
-  /同时推进/,
-  /多条线/,
-  /协作/,
-  /分工/,
-  /任务编排/,
-];
-
-const TEAM_WORKFLOW_PATTERNS = [
-  /swarm/,
-  /teamcreate/,
-  /teamdelete/,
-  /sendmessage/,
-  /teammate/,
-  /multi-agent team/,
-  /agent team/,
-  /agents team/,
-  /persistent team/,
-  /团队代理/,
-  /团队编排/,
-  /子代理编排/,
-  /持久团队/,
-];
-
-const TEAM_COORDINATION_PATTERNS = [
-  /work together/,
-  /coordinate/,
-  /coordination/,
-  /collaborat/,
-  /team lead/,
-  /shared task list/,
-  /task ownership/,
-  /claim tasks?/,
-  /assign tasks?/,
-  /handoff/,
-  /teammates?/,
-  /协调/,
-  /协作/,
-  /团队分工/,
-  /任务分派/,
-  /共享任务/,
-  /任务归属/,
-  /认领任务/,
-  /交接/,
-  /接力/,
-];
-
-const VERIFY_PATTERNS = [
-  /test/,
-  /verify/,
-  /review/,
-  /check/,
-  /lint/,
-  /build/,
-  /smoke/,
-  /sanity/,
-  /regression/,
-  /修复后验证/,
-  /验证/,
-  /测试/,
-  /审查/,
-  /检查/,
-  /回归/,
-  /验收/,
-];
-
-const COMPLEX_PATTERNS = [
-  /implement/,
-  /build/,
-  /create/,
-  /add /,
-  /refactor/,
-  /rewrite/,
-  /migrate/,
-  /integrate/,
-  /plugin/,
-  /feature/,
-  /workflow/,
-  /编写/,
-  /实现/,
-  /新增/,
-  /重构/,
-  /迁移/,
-  /接入/,
-  /插件/,
-  /功能/,
-  /工作流/,
-];
-
-const IMPLEMENT_PATTERNS = [
-  /implement/,
-  /build/,
-  /create/,
-  /add /,
-  /fix/,
-  /update/,
-  /rewrite/,
-  /refactor/,
-  /integrate/,
-  /ship/,
-  /patch/,
-  /实现/,
-  /编写/,
-  /新增/,
-  /修复/,
-  /更新/,
-  /重构/,
-  /接入/,
-  /落地/,
-];
-
-const REVIEW_PATTERNS = [
-  /review/,
-  /audit/,
-  /inspect/,
-  /check/,
-  /sanity/,
-  /regression/,
-  /code review/,
-  /pull request/,
-  /pr comments?/,
-  /审查/,
-  /审核/,
-  /复核/,
-  /检查/,
-  /验收/,
-  /回归/,
-];
-
-const MCP_PATTERNS = [
-  /\bmcp\b/,
-  /github/,
-  /jira/,
-  /slack/,
-  /figma/,
-  /sentry/,
-  /statsig/,
-  /postgres/,
-  /database/,
-  /external tool/,
-  /external system/,
-  /connected tool/,
-  /外部系统/,
-  /外部工具/,
-  /数据源/,
-  /数据库/,
-  /工单/,
-];
-
-const FRONTEND_PATTERNS = [
-  /frontend/,
-  /\bui\b/,
-  /client/,
-  /web app/,
-  /页面/,
-  /前端/,
-  /界面/,
-  /客户端/,
-];
-
-const BACKEND_PATTERNS = [
-  /backend/,
-  /\bapi\b/,
-  /server/,
-  /database/,
-  /service/,
-  /worker/,
-  /后端/,
-  /接口/,
-  /服务端/,
-  /数据库/,
-];
-
-const HOST_FEATURE_PATTERNS = [
-  /toolsearch/,
-  /enterplanmode/,
-  /teamcreate/,
-  /teamdelete/,
-  /sendmessage/,
-  /askuserquestion/,
-  /enterworktree/,
-  /task(create|update|list|get)/,
-  /taskoutput/,
-  /taskstop/,
-  /todowrite/,
-  /listmcpresources/,
-  /readmcpresource/,
-  /claude code guide/,
-  /general-purpose/,
-  /\bexplore\b/,
-  /\bplan\b/,
-];
-
-const GUIDE_PATTERNS = [
-  /claude code/,
-  /claude api/,
-  /anthropic api/,
-  /agent sdk/,
-  /slash command/,
-  /hooks?/,
-  /\bmcp\b/,
-  /settings/,
-  /permissions?/,
-  /anthropic/,
-  /命令/,
-  /hook/,
-  /配置/,
-  /权限/,
-  /设置/,
-];
-
-const HOST_TOPIC_PATTERNS = [
-  ...HOST_FEATURE_PATTERNS,
-  ...GUIDE_PATTERNS,
-  /工具/,
-  /插件/,
-  /子代理/,
-  /任务工具/,
-];
-
-const PLAN_PATTERNS = [
-  /plan/,
-  /design/,
-  /architecture/,
-  /roadmap/,
-  /trade[\s-]?off/,
-  /multi[\s-]?file/,
-  /cross[\s-]?file/,
-  /方案/,
-  /设计/,
-  /架构/,
-  /计划/,
-  /路线图/,
-  /取舍/,
-  /多文件/,
-  /跨文件/,
-  /任务拆分/,
-];
-
-const TASK_LIST_PATTERNS = [
-  /task list/,
-  /checklist/,
-  /todo/,
-  /kanban/,
-  /task board/,
-  /任务清单/,
-  /待办/,
-  /看板/,
-  /拆任务/,
-  /分派/,
-];
-
-const DECISION_PATTERNS = [
-  /choose between/,
-  /which option/,
-  /which approach/,
-  /which should/i,
-  /what(?:'s| is) better/,
-  /trade[\s-]?off/,
-  /tradeoff/,
-  /recommend (?:one|an approach|a path|a direction)/,
-  /which one/,
-  /选哪个/,
-  /怎么选/,
-  /哪个更好/,
-  /取舍/,
-  /如何取舍/,
-  /权衡/,
-  /推荐哪/,
-  /推荐哪个/,
-  /方案对比/,
-];
-
-const WORKTREE_PATTERNS = [
-  /enterworktree/,
-  /git worktree/,
-  /worktree/,
-  /separate worktree/,
-  /isolated worktree/,
-  /parallel worktree/,
-  /独立工作树/,
-  /单独工作树/,
-  /并行工作树/,
-  /隔离工作树/,
-  /工作树/,
-];
-
-const CONTINUATION_PATTERNS = [
-  /\bcontinue\b/,
-  /\bresume\b/,
-  /\bcarry on\b/,
-  /\bpick up\b/,
-  /继续/,
-  /接着/,
-  /延续/,
-  /沿着/,
-  /接续/,
-  /继续这个/,
-];
-
-const SKILL_SURFACE_PATTERNS = [
-  /\bskill\b/,
-  /skills/,
-  /slash command/,
-  /workflow/,
-  /plugin/,
-  /\/[a-z0-9][\w:-]*/,
-  /技能/,
-  /命令/,
-  /工作流/,
-  /插件/,
-];
-
-const SKILL_DISCOVERY_PATTERNS = [
-  /brainstorm/,
-  /ideate/,
-  /deploy/,
-  /release/,
-  /triage/,
-  /codemod/,
-  /scaffold/,
-  /batch/,
-  /bulk/,
-  /playbook/,
-  /checklist/,
-  /headless/,
-  /report/,
-  /头脑风暴/,
-  /部署/,
-  /发布/,
-  /批量/,
-  /脚手架/,
-  /报告/,
-  /套路/,
-  /流程化/,
-];
 
 export function startsWithExplicitCommand(prompt) {
   return /^(~|\/)/.test(String(prompt || '').trim());
@@ -465,21 +61,17 @@ export function classifyPrompt(prompt) {
     (implement && verify) ||
     (frontend && backend);
   const explicitTeamWorkflow = hasAny(text, TEAM_WORKFLOW_PATTERNS);
-  const coordinationHeavy = hasAny(text, TEAM_COORDINATION_PATTERNS);
-  const fullStackProject = frontend && backend && (implement || research || verify || complex);
-  const multiPhaseProject = research && implement && planningIntent;
-  const refactorProject = verify && hasAny(text, [
-    /refactor/,
-    /rewrite/,
-    /migrate/,
-    /重构/,
-    /重写/,
-    /迁移/,
-  ]);
-  const proactiveTeamWorkflow =
-    !explicitTeamWorkflow &&
-    (coordinationHeavy || fullStackProject || multiPhaseProject || refactorProject);
-  const teamSemantics = explicitTeamWorkflow || proactiveTeamWorkflow;
+  const { proactiveTeamWorkflow, teamSemantics } = deriveTeamSignals({
+    text,
+    frontend,
+    backend,
+    research,
+    implement,
+    verify,
+    planningIntent,
+    explicitTeamWorkflow,
+    coordinationPatterns: TEAM_COORDINATION_PATTERNS,
+  });
   const plan = complex || multiTrackByStructure || planningIntent;
   const swarm = hasAny(text, SWARM_PATTERNS) || multiTrackByStructure || teamSemantics;
   const teamWorkflow = explicitTeamWorkflow;
@@ -489,22 +81,7 @@ export function classifyPrompt(prompt) {
   const skillSurface = hasAny(text, SKILL_SURFACE_PATTERNS);
   const skillWorkflowLike = skillSurface || hasAny(text, SKILL_DISCOVERY_PATTERNS);
   const workflowContinuation = hasAny(text, CONTINUATION_PATTERNS);
-
-  const tracks = [];
-  if (frontend) tracks.push('frontend');
-  if (backend) tracks.push('backend');
-  if (research && (implement || review || verify) && !tracks.includes('research')) {
-    tracks.unshift('research');
-  }
-  if (!tracks.includes('implementation') && implement && (research || verify || review)) {
-    tracks.push('implementation');
-  }
-  if (!tracks.includes('review') && review && !verify) {
-    tracks.push('review');
-  }
-  if (!tracks.includes('verification') && verify) {
-    tracks.push('verification');
-  }
+  const tracks = buildTracks({ frontend, backend, research, implement, review, verify });
 
   const boundedImplementation = implement && !research && !swarm && tracks.length <= 1 && !frontend && !backend;
 
