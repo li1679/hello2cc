@@ -59,7 +59,9 @@ function modeState(mode, identity) {
   return {
     hello2cc_role: 'host-state',
     operator_profile: 'opus-compatible-claude-code',
+    execution_envelope: 'host_defined_capability_policies',
     semantic_routing: 'host_guarded_model_decides',
+    tool_choice: 'follow_visible_capability_contracts',
     higher_priority_rules: [
       'parent_task',
       'claude_code_host',
@@ -74,6 +76,10 @@ function modeState(mode, identity) {
         team: identity.teamName,
         coordination_channel: 'SendMessage',
       },
+      coordination: {
+        task_board: true,
+        lifecycle: ['TaskList', 'TaskGet', 'TaskUpdate'],
+      },
     } : {}),
   };
 }
@@ -87,7 +93,7 @@ function buildTeammateOverlay(identity, mode) {
 
   return [
     '## hello2cc teammate overlay',
-    `- 你当前是 team 内 agent \`${identity.agentName}\`，team=\`${identity.teamName}\`。真正需要和队友沟通时，必须用 \`SendMessage\`；普通正文不会变成团队消息。`,
+    '- 这是 team 内分工上下文；真正需要和队友沟通时，必须用 `SendMessage`，普通正文不会变成团队消息。',
     '- 开工前先 `TaskList` 看可用任务；如果已经拿到明确 task 或 owner，先 `TaskGet` 读取最新状态，再 `TaskUpdate(status:"in_progress")` 标记开工。',
     toolSurfaceLine,
     '- 完成时先 `TaskUpdate(status:"completed")`，然后再 `TaskList` 看是否还有未阻塞任务；如果被阻塞，就保持任务未完成并通过 `SendMessage` 说明 blocker / handoff。',
@@ -102,6 +108,7 @@ function buildContext(mode, identity) {
       '# hello2cc Explore mode',
       '',
       '- Follow the parent task and any higher-priority `CLAUDE.md` / project formatting rules; do not restyle the response on your own.',
+      '- The host has already defined the capability boundary; stay inside it instead of inventing a parallel workflow.',
       '- Stay read-only unless the parent task explicitly asks for changes.',
       '- If the parent task clearly maps to a visible host skill / workflow, or the conversation already surfaced a matching skill, use it instead of re-inventing the workflow.',
       '- Start with native search and targeted reads; use `ToolSearch` only for capability uncertainty, MCP discovery, or tool availability questions.',
@@ -113,6 +120,7 @@ function buildContext(mode, identity) {
       '# hello2cc Plan mode',
       '',
       '- Follow the parent task and any higher-priority `CLAUDE.md` / project formatting rules; do not restyle the response on your own.',
+      '- The host has already defined the capability boundary; use the visible planning surface rather than inventing a parallel private flow.',
       '- If a surfaced host skill / workflow already covers the requested plan shape, prefer invoking it or routing back to it instead of drafting a parallel workflow from scratch.',
       '- Convert findings into an executable plan with ordered phases, dependencies, validation checks, and rollback risks.',
       '- Call out which slices stay in the main thread, which should become parallel native `Agent` work, and which ones truly need a persistent team workflow.',
@@ -123,6 +131,7 @@ function buildContext(mode, identity) {
       '# hello2cc General-Purpose mode',
       '',
       '- Follow the parent task and any higher-priority `CLAUDE.md` / project formatting rules; do not restyle the response on your own.',
+      '- The host has already defined the capability boundary; stay on the visible Claude Code path instead of switching to a private tool-selection strategy.',
       '- Stay tightly scoped to the assigned slice; avoid broad repo-wide drift.',
       '- Do not bypass an already-matching host skill / workflow just because you can complete the task manually.',
       '- Prefer surgical edits in existing files, use dedicated tools before shell when possible, and run the narrowest relevant validation before reporting done.',
@@ -140,7 +149,7 @@ function buildContext(mode, identity) {
     '',
     '# hello2cc subagent_state',
     '',
-    'Treat the prose above as an Opus-compatible operating envelope inside Claude Code; the JSON below is host state, not a replacement for those rules.',
+    'Treat the JSON below as the authoritative execution envelope. The prose above only adds operating rules and collaboration steps.',
     '',
     '```json',
     JSON.stringify(modeState(mode, identity), null, 2),

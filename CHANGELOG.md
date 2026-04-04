@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.4.2 - 2026-04-04
+
+- 将 hello2cc 落地为 Claude Code 风格的三层结构：宿主能力策略、提示词规则编译、调用后 fail-closed 校验
+- 新增 capability policy registry，统一约束 skills / ToolSearch / MCP / Agent / TeamCreate / EnterWorktree / task tracking 的适用边界
+- 将 `TeamCreate` 与 `EnterWorktree` 纳入前置校验链，并清理旧版 route/session 意图路由辅助模块
+
 ## 0.4.1 - 2026-04-04
 
 - 恢复宿主侧意图持久化与 pre-tool 参数纠偏，减少普通并行任务误入 team / worktree 路径的问题

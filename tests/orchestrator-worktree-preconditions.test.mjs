@@ -97,6 +97,11 @@ test('post-tool-failure records non-git EnterWorktree failures and pre-enter-wor
   const failedCwd = join(env.HOME, 'non-git-enter-worktree');
   mkdirSync(failedCwd, { recursive: true });
 
+  run('route', {
+    session_id: 'enter-worktree-precondition',
+    prompt: 'Use an isolated worktree for this task.',
+  }, env);
+
   run('post-tool-failure', {
     session_id: 'enter-worktree-precondition',
     cwd: failedCwd,
@@ -139,6 +144,11 @@ test('pre-enter-worktree auto-unblocks stale failures after WorktreeCreate hooks
       ],
     },
   }, null, 2));
+
+  run('route', {
+    session_id: 'enter-worktree-recovered-hooks',
+    prompt: 'Use an isolated worktree for this task.',
+  }, env);
 
   run('post-tool-failure', {
     session_id: 'enter-worktree-recovered-hooks',

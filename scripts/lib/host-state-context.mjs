@@ -126,6 +126,7 @@ function protocolAdapters(sessionContext = {}) {
   const config = configuredModels(sessionContext);
 
   return compact({
+    capability_policies: 'host_defined_then_model_selects_within_bounds',
     semantic_routing: 'host_guarded_model_decides',
     explicit_tool_input_wins: true,
     agent_model: config.routingPolicy === 'prompt-only'
@@ -177,6 +178,18 @@ export function buildSessionStartHostState(sessionContext = {}) {
       'project_rules',
       'hello2cc',
     ],
+    policy_summary: {
+      specificity_ladder: [
+        'loaded workflow / skill continuity',
+        'surfaced skill / workflow',
+        'known MCP resource',
+        'loaded or surfaced deferred tool',
+        'ToolSearch / DiscoverSkills',
+        'broader Agent / Plan / team path',
+      ],
+      explicit_only: ['EnterWorktree'],
+      host_guarded_inputs: ['Agent.team_name', 'Agent.isolation=worktree', 'SendMessage.summary'],
+    },
     protocol_adapters: protocolAdapters(sessionContext),
     ...hostSnapshot(sessionContext, {
       includeStableWebSearchModes: true,

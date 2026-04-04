@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { normalizeAgentIsolation, normalizeAgentTeamSemantics, normalizeEnterWorktreeInput } from './lib/agent-input.mjs';
+import {
+  normalizeAgentIsolation,
+  normalizeAgentTeamSemantics,
+  normalizeEnterWorktreeInput,
+  normalizeTeamCreateInput,
+} from './lib/agent-input.mjs';
 import { configuredModels, shouldEmitAdditionalContext } from './lib/config.mjs';
 import { resolvedAgentModelOverride } from './lib/agent-models.mjs';
 import {
@@ -15,7 +20,7 @@ import { normalizeSendMessageInput } from './lib/send-message-input.mjs';
 import {
   clearAllSessionContexts,
   clearSessionContext,
-  rememberPromptSignals,
+  rememberIntentProfile,
   rememberRouteStateSignature,
   rememberToolFailure,
   rememberToolSuccess,
@@ -53,13 +58,13 @@ async function cmdRoute() {
 
   const prompt = extractPromptText(payload).trim();
   if (!prompt || startsWithExplicitCommand(prompt) || isSubagentPrompt(prompt)) {
-    rememberPromptSignals(payload?.session_id, {});
+    rememberIntentProfile(payload?.session_id, {});
     emptySuppress();
     return;
   }
 
   const signals = analyzeIntentProfile(prompt, sessionContext);
-  rememberPromptSignals(payload?.session_id, signals);
+  rememberIntentProfile(payload?.session_id, signals);
 
   if (!shouldEmitAdditionalContext()) {
     emptySuppress();
@@ -147,6 +152,25 @@ async function cmdPreEnterWorktree() {
   emptySuppress();
 }
 
+async function cmdPreTeamCreate() {
+  const payload = readStdinJson('orchestrator.mjs');
+  const sessionContext = currentSessionContext(payload);
+  const input = payload.tool_input || {};
+
+  if (payload.tool_name && payload.tool_name !== 'TeamCreate') {
+    emptySuppress();
+    return;
+  }
+
+  const normalization = normalizeTeamCreateInput(input, sessionContext);
+  if (normalization.blocked) {
+    denyToolUse(normalization.reason);
+    return;
+  }
+
+  emptySuppress();
+}
+
 async function cmdPreSendMessage() {
   const payload = readStdinJson('orchestrator.mjs');
   const input = payload.tool_input || {};
@@ -207,6 +231,9 @@ async function main() {
       break;
     case 'pre-enter-worktree':
       await cmdPreEnterWorktree();
+      break;
+    case 'pre-team-create':
+      await cmdPreTeamCreate();
       break;
     case 'pre-send-message':
       await cmdPreSendMessage();

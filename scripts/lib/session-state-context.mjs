@@ -4,25 +4,16 @@ import {
   normalizeAgentTypes,
   normalizeToolNames,
 } from './session-capabilities.mjs';
+import { summarizeIntentForState } from './intent-profile.mjs';
 import { extractSessionContextFromTranscript } from './transcript-context.mjs';
 import {
   mutateSessionEntry,
   normalizeSessionId,
 } from './session-state-store.mjs';
 
-function normalizePromptSignals(signals = {}) {
-  return {
-    plan: Boolean(signals?.plan),
-    compare: Boolean(signals?.compare),
-    teamWorkflow: Boolean(signals?.teamWorkflow),
-    proactiveTeamWorkflow: Boolean(signals?.proactiveTeamWorkflow),
-    teamSemantics: Boolean(signals?.teamSemantics),
-    swarm: Boolean(signals?.swarm),
-    wantsWorktree: Boolean(signals?.wantsWorktree),
-    boundedImplementation: Boolean(signals?.boundedImplementation),
-    diagram: Boolean(signals?.diagram),
-    decisionHeavy: Boolean(signals?.decisionHeavy),
-  };
+function normalizeIntentProfile(profile = {}) {
+  const normalized = summarizeIntentForState(profile);
+  return normalized && typeof normalized === 'object' ? normalized : {};
 }
 
 /**
@@ -151,14 +142,33 @@ export function rememberRouteStateSignature(sessionId, signature = '') {
 }
 
 /**
- * Stores prompt-derived routing hints so later pre-tool hooks can harden native behavior.
+ * Stores the last analyzed weak request-shape profile so later pre-tool hooks can harden native behavior.
  */
-export function rememberPromptSignals(sessionId, signals = {}) {
+export function rememberIntentProfile(sessionId, profile = {}) {
   const key = normalizeSessionId(sessionId);
   if (!key) return {};
 
-  return mutateSessionEntry(key, (current) => ({
-    ...current,
-    lastPromptSignals: normalizePromptSignals(signals),
-  }));
+  const lastIntentProfile = normalizeIntentProfile(profile);
+
+  return mutateSessionEntry(key, (current) => {
+    const next = { ...current };
+    delete next.lastPromptSignals;
+
+    if (Object.keys(lastIntentProfile).length === 0) {
+      delete next.lastIntentProfile;
+      return next;
+    }
+
+    return {
+      ...next,
+      lastIntentProfile,
+    };
+  });
+}
+
+/**
+ * Backward-compatible alias for older callers.
+ */
+export function rememberPromptSignals(sessionId, signals = {}) {
+  return rememberIntentProfile(sessionId, signals);
 }

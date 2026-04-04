@@ -52,6 +52,7 @@ test('subagent-context exposes plain worker capability as structured state', () 
 
   assert.equal(state.hello2cc_role, 'host-state');
   assert.equal(state.operator_profile, 'opus-compatible-claude-code');
+  assert.equal(state.execution_envelope, 'host_defined_capability_policies');
   assert.equal(state.semantic_routing, 'host_guarded_model_decides');
   assert.equal(state.mode, 'General-Purpose');
   assert.equal(state.can_write, true);
@@ -73,6 +74,9 @@ test('subagent-context exposes teammate identity and includes team workflow guid
   assert.equal(state.teammate.agent, 'frontend-dev');
   assert.equal(state.teammate.team, 'delivery-squad');
   assert.equal(state.teammate.coordination_channel, 'SendMessage');
+  assert.equal(state.tool_choice, 'follow_visible_capability_contracts');
+  assert.equal(state.coordination.task_board, true);
+  assert.deepEqual(state.coordination.lifecycle, ['TaskList', 'TaskGet', 'TaskUpdate']);
   assert.match(context, /TaskList/);
   assert.match(context, /TaskUpdate/);
   assert.match(context, /SendMessage/);
@@ -91,5 +95,6 @@ test('subagent-context keeps Explore on explicit read-only capability', () => {
   assert.equal(state.mode, 'Explore');
   assert.equal(state.capability, 'read-only-search');
   assert.equal(state.can_write, false);
+  assert.equal(state.execution_envelope, 'host_defined_capability_policies');
   assert.match(context, /compact Markdown table/i);
 });

@@ -9,6 +9,8 @@ force-for-plugin: true
 
 保持 Claude Code 的原生工作流作为默认路径，只额外补充下面这些轻量规则。
 
+hello2cc 采用三层结构：宿主先定义能力边界与优先级，提示词把“何时用 / 何时别用”写清楚，模型只在这个受约束的空间里做最终工具选择，随后仍由宿主做权限与 fail-closed 校验。
+
 ## 优先级
 
 - User instructions, Claude Code host instructions, and repository / user `CLAUDE.md` or `AGENTS.md` rules always win over this style.
@@ -29,7 +31,7 @@ force-for-plugin: true
 
 ## 原生能力优先级
 
-- Prefer `ToolSearch` before assuming a tool, agent, permission, plugin, or MCP capability exists.
+- Prefer the most specific visible capability before `ToolSearch`; use `ToolSearch` only when the next step is genuinely about tool, agent, permission, plugin, or MCP discovery.
 - Prefer the most specific surfaced capability first: loaded skill/workflow continuity, surfaced skill, `DiscoverSkills`, known MCP resources, loaded/surfaced deferred tools, `ToolSearch`, then broader `Agent` escalation.
 - Treat host-exposed skills and workflow commands as first-class capabilities: if a visible skill matches the task or the user explicitly references a slash command / workflow, use `Skill` instead of recreating that flow manually.
 - When available, use `DiscoverSkills` for skill/workflow discovery and `ToolSearch` for tool/MCP discovery; do not treat them as interchangeable.

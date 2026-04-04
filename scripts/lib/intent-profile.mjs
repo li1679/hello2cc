@@ -1,5 +1,21 @@
 import { extractIntentSlots, promptMentionsAny } from './intent-slots.mjs';
 
+const TABLE_OUTPUT_MARKERS = [
+  'table',
+  'matrix',
+  '表格',
+  '矩阵',
+  '对照表',
+];
+
+const DIAGRAM_OUTPUT_MARKERS = [
+  'chart',
+  'diagram',
+  'flow',
+  '图',
+  '流程图',
+];
+
 function appendTrack(tracks, value) {
   if (!tracks.includes(value)) {
     tracks.push(value);
@@ -59,6 +75,14 @@ function knownSurfaceMentioned(text, sessionContext = {}) {
   ]);
 }
 
+function wantsTableLayout(text) {
+  return promptMentionsAny(text, TABLE_OUTPUT_MARKERS);
+}
+
+function wantsDiagramLayout(text) {
+  return promptMentionsAny(text, DIAGRAM_OUTPUT_MARKERS);
+}
+
 export function analyzeIntentProfile(prompt, sessionContext = {}) {
   const slots = extractIntentSlots(prompt);
   const actions = new Set(slots.actions);
@@ -85,14 +109,9 @@ export function analyzeIntentProfile(prompt, sessionContext = {}) {
     topics.has('api_sdk') ||
     topics.has('settings');
   const workflowContinuation = structure.has('continuation') || knownSurfaceMentioned(slots.text, sessionContext);
-  const explicitTeamWorkflow = collaboration.has('team') || collaboration.has('task_board');
+  const collaborationMentioned = collaboration.has('team') || collaboration.has('task_board');
   const coordinationHeavy = collaboration.has('task_board') || collaboration.has('owner_handoff');
-  const explicitParallelIntent = collaboration.has('parallel') || explicitTeamWorkflow;
-  const proactiveTeamWorkflow =
-    !explicitTeamWorkflow &&
-    coordinationHeavy &&
-    (research || implement || verify || review);
-  const teamSemantics = explicitTeamWorkflow || proactiveTeamWorkflow;
+  const parallelRequested = collaboration.has('parallel');
   const architectureHeavy = structure.has('architecture');
   const decisionHeavy = questionIntent && (compare || structure.has('decision') || architectureHeavy);
   const plan = planRequest || (
@@ -101,21 +120,33 @@ export function analyzeIntentProfile(prompt, sessionContext = {}) {
     !compare &&
     (research || implement || verify || review || structure.has('scope_heavy'))
   );
-  const taskList = plan || explicitTeamWorkflow || proactiveTeamWorkflow;
   const complex =
     structure.has('scope_heavy') ||
     architectureHeavy ||
     (frontend && backend && (research || implement || verify || review));
   const claudeGuide = guideTopic && (questionIntent || research || compare || planRequest);
   const capabilityQuery =
-    (questionIntent && (guideTopic || explicitHostFeature || mcp || skillSurface || explicitTeamWorkflow || collaboration.has('worktree'))) ||
+    (questionIntent && (guideTopic || explicitHostFeature || mcp || skillSurface || collaborationMentioned || collaboration.has('worktree'))) ||
     (explicitHostFeature && questionIntent);
+  const explicitTeamWorkflow = collaborationMentioned && !compare && !capabilityQuery;
+  const explicitParallelIntent = parallelRequested || explicitTeamWorkflow;
+  const proactiveTeamWorkflow =
+    !explicitTeamWorkflow &&
+    coordinationHeavy &&
+    (research || implement || verify || review);
+  const teamSemantics = explicitTeamWorkflow || proactiveTeamWorkflow;
+  const taskList = plan || explicitTeamWorkflow || proactiveTeamWorkflow;
   const codeResearch = research && !capabilityQuery && !claudeGuide;
   const skillWorkflowLike = skillSurface || workflowContinuation;
   const tracks = buildTracks({ frontend, backend, research, implement, review, verify });
   const swarm = explicitParallelIntent || (tracks.length > 1 && proactiveTeamWorkflow);
+  const wantsTable = compare || wantsTableLayout(slots.text);
+  const diagram = wantsDiagramLayout(slots.text);
+  const wantsStructuredOutput = wantsTable || diagram;
   const boundedImplementation =
     implement &&
+    !compare &&
+    !capabilityQuery &&
     !research &&
     !review &&
     !swarm &&
@@ -126,10 +157,13 @@ export function analyzeIntentProfile(prompt, sessionContext = {}) {
   return {
     questionIntent,
     compare,
-    diagram: structure.has('diagram') || compare,
+    diagram,
+    wantsTable,
+    wantsStructuredOutput,
     research,
     currentInfo,
     swarm,
+    parallelRequested,
     teamWorkflow: explicitTeamWorkflow,
     proactiveTeamWorkflow,
     teamSemantics,
@@ -160,18 +194,23 @@ export function analyzeIntentProfile(prompt, sessionContext = {}) {
 
 export function summarizeIntentForState(intent = {}) {
   return compact({
-    actions: [
-      ...(intent.research ? ['research'] : []),
-      ...(intent.implement ? ['implement'] : []),
-      ...(intent.review ? ['review'] : []),
-      ...(intent.verify ? ['verify'] : []),
-      ...(intent.plan ? ['plan'] : []),
-      ...(intent.currentInfo ? ['current_info'] : []),
-    ],
+    analysis_mode: 'weak_request_shape',
+    question: intent.questionIntent || undefined,
+    actions: compact({
+      research: intent.research || undefined,
+      implement: intent.implement || undefined,
+      review: intent.review || undefined,
+      verify: intent.verify || undefined,
+      plan: intent.plan || undefined,
+      compare: intent.compare || undefined,
+      current_info: intent.currentInfo || undefined,
+    }),
     collaboration: compact({
-      parallel_requested: intent.swarm || undefined,
+      parallel_requested: intent.parallelRequested || undefined,
+      swarm: intent.swarm || undefined,
       team_workflow: intent.teamWorkflow || undefined,
       proactive_team: intent.proactiveTeamWorkflow || undefined,
+      team_semantics: intent.teamSemantics || undefined,
       wants_worktree: intent.wantsWorktree || undefined,
       task_board: intent.taskList || undefined,
     }),
@@ -179,8 +218,25 @@ export function summarizeIntentForState(intent = {}) {
       claude_guide: intent.claudeGuide || undefined,
       capability_query: intent.capabilityQuery || undefined,
       workflow_continuation: intent.workflowContinuation || undefined,
+      tool_search_first: intent.toolSearchFirst || undefined,
+      bounded_implementation: intent.boundedImplementation || undefined,
+      decision_heavy: intent.decisionHeavy || undefined,
+      code_research: intent.codeResearch || undefined,
+      complex: intent.complex || undefined,
+      websearch_retry: intent.webSearchRetry || undefined,
+    }),
+    output: compact({
       compare: intent.compare || undefined,
       diagram: intent.diagram || undefined,
+      table: intent.wantsTable || undefined,
+      structured: intent.wantsStructuredOutput || undefined,
+    }),
+    topics: compact({
+      frontend: intent.frontend || undefined,
+      backend: intent.backend || undefined,
+      mcp: intent.mcp || undefined,
+      skill_surface: intent.skillSurface || undefined,
+      host_capabilities: intent.tools || undefined,
     }),
     tracks: intent.tracks,
   });

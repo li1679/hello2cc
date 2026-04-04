@@ -37,8 +37,9 @@ function validatePreToolHooks(context, hooks) {
 
   const hasAgentHook = preToolUse.some((entry) => entry.matcher === 'Agent');
   const hasEnterWorktreeHook = preToolUse.some((entry) => entry.matcher === 'EnterWorktree');
-  if (!hasAgentHook || !hasEnterWorktreeHook) {
-    context.fail('hooks.json should define PreToolUse hooks for Agent and EnterWorktree');
+  const hasTeamCreateHook = preToolUse.some((entry) => entry.matcher === 'TeamCreate');
+  if (!hasAgentHook || !hasEnterWorktreeHook || !hasTeamCreateHook) {
+    context.fail('hooks.json should define PreToolUse hooks for Agent, EnterWorktree, and TeamCreate');
   } else {
     context.ok('hooks Agent pretool injection');
   }

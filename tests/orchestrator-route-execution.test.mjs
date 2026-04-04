@@ -70,10 +70,12 @@ test('route emits dynamic host state when transcript surfaces skills workflows o
   }, env);
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
+  assert.equal(state.decision_model, 'host_defined_capability_policies');
   assert.equal(state.host.active_team, 'delivery-squad');
   assert.deepEqual(state.host.surfaced_skills, ['release']);
   assert.deepEqual(state.host.loaded_commands, ['release']);
   assert.deepEqual(state.host.workflows, ['release']);
+  assert.equal(state.policy.engine, 'host_defined_capability_policies');
 });
 
 test('route only emits a prompt-state snapshot when it changes', () => {
@@ -150,8 +152,10 @@ test('route adds native team guidance for explicit team workflow requests', () =
 
   assert.match(context, /TeamCreate/);
   assert.match(context, /TaskList/);
+  assert.match(context, /team 语义|持续协作型 team/i);
   assert.equal(state.intent.collaboration.team_workflow, true);
   assert.equal(state.intent.collaboration.task_board, true);
+  assert.equal(state.policy.engine, 'host_defined_capability_policies');
 });
 
 test('route prefers markdown tables for comparison prompts', () => {
@@ -163,9 +167,12 @@ test('route prefers markdown tables for comparison prompts', () => {
   const context = output.hookSpecificOutput.additionalContext;
   const state = parseAdditionalContextJson(context);
 
-  assert.match(context, /Markdown 表格|Markdown tables?/);
-  assert.match(context, /一句话判断/);
-  assert.equal(state.intent.routing.diagram, true);
-  assert.equal(state.intent.routing.compare, true);
-  assert.ok(!state.intent.actions || !state.intent.actions.includes('plan'));
+  assert.match(context, /Markdown (?:表格|对比表)|Markdown tables?/);
+  assert.match(context, /比较 \/ 选型 \/ 能力边界问题|直接回答/);
+  assert.equal(state.intent.actions.compare, true);
+  assert.equal(state.intent.output.table, true);
+  assert.equal(state.intent.output.structured, true);
+  assert.equal(state.intent.output.diagram, undefined);
+  assert.equal(state.intent.actions.plan, undefined);
+  assert.equal(state.policy.requested_output_shape, 'one_sentence_judgment_then_markdown_table_then_recommendation');
 });

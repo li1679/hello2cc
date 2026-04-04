@@ -1,4 +1,5 @@
 import {
+  rememberIntentProfile,
   rememberPromptSignals,
   rememberRouteStateSignature,
   rememberSessionContext,
@@ -27,6 +28,7 @@ export function clearAllSessionContexts() {
 }
 
 export {
+  rememberIntentProfile,
   rememberPromptSignals,
   rememberRouteStateSignature,
   rememberSessionContext,
