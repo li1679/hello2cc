@@ -44,3 +44,13 @@ test('plan stop blocks plans without structure or validation', () => {
   assert.match(result.stdout, /block/);
   assert.match(result.stdout, /validation/i);
 });
+
+test('plan stop allows structured non-lexicon plans with concrete artifacts', () => {
+  const result = run({
+    agent_type: 'Plan',
+    last_assistant_message: '1. `src/router.mjs`\n2. `tests/router.test.mjs`\n3. `npm test -- router`',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+});

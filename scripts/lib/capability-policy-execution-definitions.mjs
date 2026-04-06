@@ -25,9 +25,9 @@ export const EXECUTION_POLICY_DEFINITIONS = [
       const lines = [];
 
       if (requestNeedsTeamWorkflow(requestProfile)) {
-        lines.push('当前任务满足持续协作型 team 语义：优先 `TeamCreate` → `TaskList` / `TaskCreate` 建真实 task board → teammate，而不是只靠一次性 plain workers 或正文口头分工。');
+        lines.push('把当前任务按持续协作型 team 语义处理：优先 `TeamCreate` → `TaskList` / `TaskCreate` 建真实 task board → teammate，而不是只靠一次性 plain workers 或正文口头分工。');
       } else if (requestNeedsParallelWorkers(requestProfile)) {
-        lines.push('当前任务更像一次性并行 worker，而不是持久 team；普通 worker 默认不要带 `name` / `team_name`。');
+        lines.push('把当前任务按一次性并行 worker 处理而不是持久 team；普通 worker 默认不要带 `name` / `team_name`。');
       }
 
       return lines;
@@ -69,7 +69,7 @@ export const EXECUTION_POLICY_DEFINITIONS = [
       if (!trackingTool) return lines;
 
       if (requestNeedsPlanning(requestProfile) || requestNeedsTeamWorkflow(requestProfile)) {
-        lines.push(`这是多步任务：优先用 \`${trackingTool}\` 维护真实任务状态，而不是把计划藏在长段落里。`);
+        lines.push(`把当前任务按多步任务处理：优先用 \`${trackingTool}\` 维护真实任务状态，而不是把计划藏在长段落里。`);
       }
       return lines;
     },
@@ -94,7 +94,7 @@ export const EXECUTION_POLICY_DEFINITIONS = [
     },
     sessionLines() {
       return [
-        '- `EnterWorktree` 是显式能力，不是普通分支切换的默认替代；只有用户明确要求隔离工作树 / 并行工作区时才使用。',
+        '- 只在用户明确要求隔离工作树 / 并行工作区时使用 `EnterWorktree`；不要把它当成普通分支切换的默认替代。',
       ];
     },
     routeLines(requestProfile) {
@@ -132,7 +132,7 @@ export const EXECUTION_POLICY_DEFINITIONS = [
       }
 
       return [
-        '当前已出现可用的 deferred tool 线索；若它们覆盖下一步，就优先沿着该具体工具面继续，不要直接升级成更宽的协作路径。',
+        '把当前已出现的 deferred tool 线索当成下一步的优先路径；如果它们覆盖下一步，就沿着该具体工具面继续，不要直接升级成更宽的协作路径。',
       ];
     },
     snapshot(sessionContext) {

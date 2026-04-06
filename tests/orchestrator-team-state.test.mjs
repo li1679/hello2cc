@@ -6,6 +6,7 @@ import {
   join,
   run,
   isolatedEnv,
+  writeTranscript,
 } from './helpers/orchestrator-test-helpers.mjs';
 
 test('post-tool-failure records missing teams and pre-agent-model fail-closes repeated teammate retries', () => {
@@ -76,6 +77,20 @@ test('post-tool-use clears known-missing team failures after TeamCreate succeeds
       team_name: 'delivery-squad',
     },
   }, env);
+  run('post-tool-use', {
+    session_id: 'missing-team-cleared',
+    tool_name: 'TaskCreate',
+    tool_input: {
+      subject: 'Implement frontend slice',
+      description: 'Real task board for the team',
+    },
+    tool_response: {
+      task: {
+        id: '1',
+        subject: 'Implement frontend slice',
+      },
+    },
+  }, env);
 
   const output = run('pre-agent-model', {
     session_id: 'missing-team-cleared',
@@ -89,6 +104,199 @@ test('post-tool-use clears known-missing team failures after TeamCreate succeeds
 
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'sonnet');
   assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
+});
+
+test('pre-team-delete no longer pre-denies cleanup and leaves TeamDelete lifecycle checks to the native tool', () => {
+  const env = isolatedEnv();
+  const sessionId = 'team-delete-guarded';
+  const teammateSessionId = 'team-delete-guarded-worker';
+  const teammateTranscriptPath = writeTranscript(env.HOME, teammateSessionId, {
+    model: 'opus',
+    tools: ['SendMessage'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: teammateSessionId,
+      team_name: 'delivery-squad',
+      agent_name: 'frontend-owner',
+    },
+  ]);
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TeamCreate',
+    tool_input: {
+      team_name: 'delivery-squad',
+    },
+    tool_response: {
+      team_name: 'delivery-squad',
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TaskList',
+    tool_response: {
+      tasks: [
+        { id: '7', subject: 'Implement API', status: 'in_progress', owner: 'frontend-owner', blockedBy: [] },
+      ],
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      name: 'frontend-owner',
+      team_name: 'delivery-squad',
+    },
+  }, env);
+
+  const blockedForTasks = run('pre-team-delete', {
+    session_id: sessionId,
+    tool_name: 'TeamDelete',
+    tool_input: {},
+  }, env);
+  assert.deepEqual(blockedForTasks, { suppressOutput: true });
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TaskUpdate',
+    tool_input: {
+      taskId: '7',
+      status: 'completed',
+      owner: 'frontend-owner',
+    },
+    tool_response: {
+      success: true,
+      taskId: '7',
+      updatedFields: ['status', 'owner'],
+      statusChange: {
+        from: 'in_progress',
+        to: 'completed',
+      },
+    },
+  }, env);
+
+  const blockedForShutdown = run('pre-team-delete', {
+    session_id: sessionId,
+    tool_name: 'TeamDelete',
+    tool_input: {},
+  }, env);
+  assert.deepEqual(blockedForShutdown, { suppressOutput: true });
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'frontend-owner',
+      message: {
+        type: 'shutdown_request',
+      },
+    },
+  }, env);
+
+  const blockedForApproval = run('pre-team-delete', {
+    session_id: sessionId,
+    tool_name: 'TeamDelete',
+    tool_input: {},
+  }, env);
+  assert.deepEqual(blockedForApproval, { suppressOutput: true });
+
+  run('post-tool-use', {
+    session_id: teammateSessionId,
+    transcript_path: teammateTranscriptPath,
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'team-lead',
+      message: {
+        type: 'shutdown_response',
+        request_id: 'shutdown-1',
+        approve: true,
+      },
+    },
+    tool_response: {
+      success: true,
+    },
+  }, env);
+
+  const allowed = run('pre-team-delete', {
+    session_id: sessionId,
+    tool_name: 'TeamDelete',
+    tool_input: {},
+  }, env);
+  assert.deepEqual(allowed, { suppressOutput: true });
+});
+
+test('pre-team-delete no longer pre-denies cleanup after teammate shutdown rejection state is recorded', () => {
+  const env = isolatedEnv();
+  const sessionId = 'team-delete-rejected';
+  const teammateSessionId = 'team-delete-rejected-worker';
+  const teammateTranscriptPath = writeTranscript(env.HOME, teammateSessionId, {
+    model: 'opus',
+    tools: ['SendMessage'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: teammateSessionId,
+      team_name: 'delivery-squad',
+      agent_name: 'frontend-owner',
+    },
+  ]);
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TeamCreate',
+    tool_input: {
+      team_name: 'delivery-squad',
+    },
+    tool_response: {
+      team_name: 'delivery-squad',
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      name: 'frontend-owner',
+      team_name: 'delivery-squad',
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'frontend-owner',
+      message: {
+        type: 'shutdown_request',
+      },
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: teammateSessionId,
+    transcript_path: teammateTranscriptPath,
+    tool_name: 'SendMessage',
+    tool_input: {
+      to: 'team-lead',
+      message: {
+        type: 'shutdown_response',
+        request_id: 'shutdown-2',
+        approve: false,
+        reason: 'Still finishing verification',
+      },
+    },
+    tool_response: {
+      success: true,
+    },
+  }, env);
+
+  const blocked = run('pre-team-delete', {
+    session_id: sessionId,
+    tool_name: 'TeamDelete',
+    tool_input: {},
+  }, env);
+
+  assert.deepEqual(blocked, { suppressOutput: true });
 });
 
 test('post-tool-use records deleted teams as unavailable until recreated', () => {

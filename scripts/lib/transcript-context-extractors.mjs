@@ -5,176 +5,35 @@ import {
   normalizeToolNames,
 } from './session-capabilities.mjs';
 import {
-  collectObjects,
   collectStrings,
-  normalizeCommandArgs,
+  extractAgentListingDelta,
+  extractAttachmentSignals,
+  extractAttachments,
+  extractCommandEntries,
+  extractDeferredToolDelta,
+  extractMcpInstructionDelta,
+  extractMcpResources,
+  extractSkillEntriesFromText,
+  extractSkillListingAttachment,
+  extractToolReferenceNames,
+  latestAttachmentOfType,
+  normalizeAttachmentTeamContext,
   normalizeDescription,
   normalizeName,
   uniq,
   uniqBy,
-} from './transcript-context-utils.mjs';
+} from './transcript-record-extractors.mjs';
+import { extractWorkflowEntries } from './transcript-workflow-extractors.mjs';
 
-const COMMAND_NAME_PATTERN = /<command-name>(.*?)<\/command-name>/gi;
-const COMMAND_MESSAGE_PATTERN = /<command-message>(.*?)<\/command-message>/gi;
-const COMMAND_ARGS_PATTERN = /<command-args>([\s\S]*?)<\/command-args>/i;
-const SKILL_FORMAT_PATTERN = /<skill-format>(.*?)<\/skill-format>/i;
-const SKILL_DISCOVERY_HEADER = 'Skills relevant to your task:';
-const MCP_RESOURCE_UPDATE_PATTERN = /<mcp-resource-update\s+server="([^"]+)"\s+uri="([^"]+)"[^>]*>(?:[\s\S]*?<reason>([^<]*)<\/reason>)?/gi;
-
-function extractCommandEntries(text) {
-  const source = String(text || '');
-  const args = normalizeCommandArgs(source.match(COMMAND_ARGS_PATTERN)?.[1]);
-  const isSkillFormat = String(source.match(SKILL_FORMAT_PATTERN)?.[1] || '').trim().toLowerCase() === 'true';
-
-  const fromPattern = (pattern, sourceTag) => [...source.matchAll(pattern)]
-    .map((match) => ({
-      name: normalizeName(match[1]),
-      args,
-      isSkillFormat,
-      source: sourceTag,
-    }))
-    .filter((entry) => entry.name);
-
-  return uniqBy(
-    [
-      ...fromPattern(COMMAND_NAME_PATTERN, 'command-name'),
-      ...fromPattern(COMMAND_MESSAGE_PATTERN, 'command-message'),
-    ],
-    (entry) => `${entry.name.toLowerCase()}|${entry.args}|${entry.isSkillFormat ? 'skill' : 'slash'}`,
-  );
-}
-
-function extractSkillEntriesFromText(text) {
-  const normalized = String(text || '');
-  const markerIndex = normalized.indexOf(SKILL_DISCOVERY_HEADER);
-  if (markerIndex === -1) return { names: [], skills: [] };
-
-  const skills = normalized
-    .slice(markerIndex + SKILL_DISCOVERY_HEADER.length)
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- '))
-    .map((line) => line.replace(/^- /, ''))
-    .map((line) => {
-      const [name, ...rest] = line.split(':');
-      return {
-        name: normalizeName(name),
-        description: normalizeDescription(rest.join(':')),
-      };
-    })
-    .filter((entry) => entry.name);
-
-  return {
-    names: skills.map((skill) => skill.name),
-    skills,
-  };
-}
-
-function extractAttachments(record) {
-  const directAttachments = Array.isArray(record?.attachments) ? record.attachments : [];
-  const messageAttachments = Array.isArray(record?.message?.attachments) ? record.message.attachments : [];
-  const contentAttachments = Array.isArray(record?.message?.content)
-    ? record.message.content.filter((item) => item && typeof item === 'object' && 'type' in item)
-    : [];
-
-  return [...directAttachments, ...messageAttachments, ...contentAttachments];
-}
-
-function extractToolReferenceNames(record) {
-  return uniq(
-    collectObjects(
-      record,
-      (value) => value?.type === 'tool_reference' && typeof value?.tool_name === 'string',
-    ).map((value) => value.tool_name),
-  );
-}
-
-function extractDeferredToolDelta(record) {
-  const attachments = extractAttachments(record)
-    .filter((attachment) => attachment?.type === 'deferred_tools_delta');
-
-  return {
-    addedNames: uniq(attachments.flatMap((attachment) => Array.isArray(attachment.addedNames) ? attachment.addedNames : [])),
-    removedNames: uniq(attachments.flatMap((attachment) => Array.isArray(attachment.removedNames) ? attachment.removedNames : [])),
-  };
-}
-
-function normalizeMcpResourceEntry(entry) {
-  const server = String(entry?.server || '').trim();
-  const uri = String(entry?.uri || '').trim();
-
-  if (!server || !uri) return null;
-
-  return {
-    server,
-    uri,
-    name: String(entry?.name || uri).trim(),
-    ...(normalizeDescription(entry?.description) ? { description: normalizeDescription(entry?.description) } : {}),
-  };
-}
-
-function extractMcpResources(record, textBlocks = []) {
-  const attachmentResources = extractAttachments(record)
-    .filter((attachment) => attachment?.type === 'mcp_resource')
-    .map(normalizeMcpResourceEntry)
-    .filter(Boolean);
-
-  const objectResources = collectObjects(
-    record,
-    (value) => (
-      value &&
-      typeof value === 'object' &&
-      typeof value.server === 'string' &&
-      typeof value.uri === 'string' &&
-      (value.type === 'mcp_resource' || 'name' in value || 'mimeType' in value)
-    ),
-  )
-    .map(normalizeMcpResourceEntry)
-    .filter(Boolean);
-
-  const textResources = textBlocks.flatMap((text) => [...String(text || '').matchAll(MCP_RESOURCE_UPDATE_PATTERN)]
-    .map((match) => normalizeMcpResourceEntry({
-      server: match[1],
-      uri: match[2],
-      name: match[2],
-      description: match[3],
-    }))
-    .filter(Boolean));
-
-  return uniqBy(
-    [
-      ...attachmentResources,
-      ...objectResources,
-      ...textResources,
-    ],
-    (entry) => `${entry.server.toLowerCase()}::${entry.uri.toLowerCase()}`,
-  );
-}
-
-function extractWorkflowEntries(record) {
-  if (
-    record?.type !== 'system' ||
-    String(record?.subtype || '').trim() !== 'task_started' ||
-    String(record?.task_type || '').trim() !== 'local_workflow'
-  ) {
-    return [];
-  }
-
-  const name = normalizeName(record?.workflow_name);
-  if (!name) return [];
-
-  return [{
-    name,
-    ...(normalizeDescription(record?.description) ? { description: normalizeDescription(record.description) } : {}),
-    ...(normalizeDescription(record?.prompt) ? { prompt: normalizeDescription(record.prompt) } : {}),
-  }];
-}
-
+/**
+ * Extracts interaction-scoped host surface and attachment state from a transcript record.
+ */
 export function interactionSnapshotFromRecord(record) {
   if (!record || typeof record !== 'object') return {};
 
   const textBlocks = collectStrings(record);
   const attachments = extractAttachments(record);
+  const skillListingAttachment = extractSkillListingAttachment(record);
   const surfacedSkillEntries = uniqBy([
     ...attachments
       .filter((attachment) => attachment?.type === 'skill_discovery')
@@ -184,6 +43,7 @@ export function interactionSnapshotFromRecord(record) {
           description: normalizeDescription(skill?.description),
         }))
         : []),
+    ...skillListingAttachment.skills,
     ...textBlocks.flatMap((text) => extractSkillEntriesFromText(text).skills),
   ], (entry) => entry.name.toLowerCase());
   const loadedCommands = uniqBy(
@@ -195,8 +55,11 @@ export function interactionSnapshotFromRecord(record) {
     (entry) => entry.name.toLowerCase(),
   );
   const deferredToolDelta = extractDeferredToolDelta(record);
+  const agentListingDelta = extractAgentListingDelta(record);
   const loadedDeferredToolNames = extractToolReferenceNames(record);
   const mcpResources = extractMcpResources(record, textBlocks);
+  const mcpInstructionDelta = extractMcpInstructionDelta(record);
+  const attachmentSignals = extractAttachmentSignals(record);
 
   return {
     ...(surfacedSkillEntries.length ? {
@@ -213,11 +76,19 @@ export function interactionSnapshotFromRecord(record) {
     } : {}),
     ...(deferredToolDelta.addedNames.length ? { availableDeferredToolNames: deferredToolDelta.addedNames } : {}),
     ...(deferredToolDelta.removedNames.length ? { removedDeferredToolNames: deferredToolDelta.removedNames } : {}),
+    ...(agentListingDelta.addedTypes.length ? { surfacedAgentTypes: normalizeAgentTypes(agentListingDelta.addedTypes) } : {}),
+    ...(agentListingDelta.removedTypes.length ? { removedSurfacedAgentTypes: normalizeAgentTypes(agentListingDelta.removedTypes) } : {}),
     ...(loadedDeferredToolNames.length ? { loadedDeferredToolNames } : {}),
     ...(mcpResources.length ? { mcpResources } : {}),
+    ...(mcpInstructionDelta.entries.length ? { mcpInstructionEntries: mcpInstructionDelta.entries } : {}),
+    ...(mcpInstructionDelta.removedNames.length ? { removedMcpInstructionNames: mcpInstructionDelta.removedNames } : {}),
+    ...attachmentSignals,
   };
 }
 
+/**
+ * Extracts session-scoped tool, agent, and interaction capabilities from a transcript record.
+ */
 export function sessionSnapshotFromRecord(record) {
   if (!record || typeof record !== 'object') return {};
 
@@ -237,14 +108,20 @@ export function sessionSnapshotFromRecord(record) {
   };
 }
 
+/**
+ * Extracts team identity hints from transcript records and team-context attachments.
+ */
 export function teamSnapshotFromRecord(record) {
   if (!record || typeof record !== 'object') return {};
 
-  const teamName = String(record.teamName || record.team_name || '').trim();
-  const agentName = String(record.agentName || record.agent_name || '').trim();
+  const attachmentTeamContext = normalizeAttachmentTeamContext(latestAttachmentOfType(record, 'team_context'));
+  const teamName = String(record.teamName || record.team_name || attachmentTeamContext?.teamName || '').trim();
+  const agentName = String(record.agentName || record.agent_name || attachmentTeamContext?.agentName || '').trim();
 
   return {
     ...(teamName ? { teamName } : {}),
     ...(agentName ? { agentName } : {}),
+    ...(attachmentTeamContext?.teamConfigPath ? { teamConfigPath: attachmentTeamContext.teamConfigPath } : {}),
+    ...(attachmentTeamContext?.taskListPath ? { taskListPath: attachmentTeamContext.taskListPath } : {}),
   };
 }

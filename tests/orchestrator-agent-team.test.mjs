@@ -25,14 +25,39 @@ test('pre-agent-model preserves explicit real team_name and can inject team mode
   const env = isolatedEnv({
     CLAUDE_PLUGIN_OPTION_TEAM_MODEL: 'sonnet',
   });
+  const sessionId = 'explicit-team';
 
   run('route', {
-    session_id: 'explicit-team',
+    session_id: sessionId,
     prompt: 'Use TeamCreate with teammates and a shared task board for this work.',
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TeamCreate',
+    tool_input: {
+      team_name: 'delivery-squad',
+    },
+    tool_response: {
+      team_name: 'delivery-squad',
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TaskCreate',
+    tool_input: {
+      subject: 'Implement frontend slice',
+      description: 'Give the teammate a real task board',
+    },
+    tool_response: {
+      task: {
+        id: '1',
+        subject: 'Implement frontend slice',
+      },
+    },
   }, env);
 
   const output = run('pre-agent-model', {
-    session_id: 'explicit-team',
+    session_id: sessionId,
     tool_name: 'Agent',
     tool_input: {
       subagent_type: 'general-purpose',
@@ -46,11 +71,16 @@ test('pre-agent-model preserves explicit real team_name and can inject team mode
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'sonnet');
 });
 
-test('pre-agent-model only auto-fills team_name after host state proves an active real team', () => {
+test('pre-agent-model no longer pre-denies teammate routing before a task board exists', () => {
   const env = isolatedEnv();
+  const sessionId = 'team-needs-task-board';
 
+  run('route', {
+    session_id: sessionId,
+    prompt: 'Use TeamCreate with teammates and a shared task board for this work.',
+  }, env);
   run('post-tool-use', {
-    session_id: 'active-team-autofill',
+    session_id: sessionId,
     tool_name: 'TeamCreate',
     tool_input: {
       team_name: 'delivery-squad',
@@ -60,13 +90,55 @@ test('pre-agent-model only auto-fills team_name after host state proves an activ
     },
   }, env);
 
+  const output = run('pre-agent-model', {
+    session_id: sessionId,
+    tool_name: 'Agent',
+    tool_input: {
+      subagent_type: 'general-purpose',
+      name: 'frontend-owner',
+      team_name: 'delivery-squad',
+    },
+  }, env);
+
+  assert.deepEqual(output, { suppressOutput: true });
+});
+
+test('pre-agent-model only auto-fills team_name after host state proves an active real team', () => {
+  const env = isolatedEnv();
+  const sessionId = 'active-team-autofill';
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TeamCreate',
+    tool_input: {
+      team_name: 'delivery-squad',
+    },
+    tool_response: {
+      team_name: 'delivery-squad',
+    },
+  }, env);
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TaskCreate',
+    tool_input: {
+      subject: 'Implement frontend slice',
+      description: 'Host state now has a real task board',
+    },
+    tool_response: {
+      task: {
+        id: '1',
+        subject: 'Implement frontend slice',
+      },
+    },
+  }, env);
+
   run('route', {
-    session_id: 'active-team-autofill',
+    session_id: sessionId,
     prompt: 'Continue coordinating teammates on the shared task board for this implementation.',
   }, env);
 
   const output = run('pre-agent-model', {
-    session_id: 'active-team-autofill',
+    session_id: sessionId,
     tool_name: 'Agent',
     tool_input: {
       subagent_type: 'general-purpose',
@@ -102,7 +174,7 @@ test('pre-agent-model strips reserved assistant team placeholders', () => {
   assert.match(output.hookSpecificOutput.permissionDecisionReason, /implicit assistant team semantics/i);
 });
 
-test('pre-team-create blocks team creation when the request does not imply sustained team semantics', () => {
+test('pre-team-create no longer denies team creation when the request does not imply sustained team semantics', () => {
   const env = isolatedEnv();
 
   run('route', {
@@ -119,8 +191,7 @@ test('pre-team-create blocks team creation when the request does not imply susta
     },
   }, env);
 
-  assert.equal(output.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(output.hookSpecificOutput.permissionDecisionReason, /does not indicate sustained team semantics/i);
+  assert.deepEqual(output, { suppressOutput: true });
 });
 
 test('pre-team-create allows native team creation for sustained collaboration requests', () => {
@@ -143,7 +214,7 @@ test('pre-team-create allows native team creation for sustained collaboration re
   assert.deepEqual(output, { suppressOutput: true });
 });
 
-test('pre-enter-worktree blocks worktree creation unless the user explicitly requested it', () => {
+test('pre-enter-worktree no longer pre-denies worktree creation when the prompt did not explicitly request it', () => {
   const env = isolatedEnv();
 
   run('route', {
@@ -157,6 +228,5 @@ test('pre-enter-worktree blocks worktree creation unless the user explicitly req
     tool_input: {},
   }, env);
 
-  assert.equal(output.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(output.hookSpecificOutput.permissionDecisionReason, /did not explicitly request worktree isolation/i);
+  assert.deepEqual(output, { suppressOutput: true });
 });

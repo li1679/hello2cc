@@ -4,14 +4,14 @@ function envTruthy(name) {
   return ['1', 'true', 'yes', 'on'].includes(envValue(name).toLowerCase());
 }
 
-export function getApiProvider() {
+function getApiProvider() {
   if (envTruthy('CLAUDE_CODE_USE_BEDROCK')) return 'bedrock';
   if (envTruthy('CLAUDE_CODE_USE_VERTEX')) return 'vertex';
   if (envTruthy('CLAUDE_CODE_USE_FOUNDRY')) return 'foundry';
   return 'firstParty';
 }
 
-export function isFirstPartyAnthropicBaseUrl() {
+function isFirstPartyAnthropicBaseUrl() {
   const baseUrl = envValue('ANTHROPIC_BASE_URL');
   if (!baseUrl) return true;
 
@@ -29,11 +29,11 @@ export function isFirstPartyAnthropicBaseUrl() {
   }
 }
 
-export function usesCustomAnthropicProxy() {
+function usesCustomAnthropicProxy() {
   return getApiProvider() === 'firstParty' && !isFirstPartyAnthropicBaseUrl();
 }
 
-export function hasObservedTools(sessionContext = {}) {
+function hasObservedTools(sessionContext = {}) {
   return Array.isArray(sessionContext?.toolNames) && sessionContext.toolNames.length > 0;
 }
 
@@ -159,8 +159,4 @@ export function resolveWebSearchGuidanceState(sessionContext = {}, options = {})
     modelChanged,
     cooldownExpired,
   };
-}
-
-export function resolveWebSearchGuidanceMode(sessionContext = {}, options = {}) {
-  return resolveWebSearchGuidanceState(sessionContext, options).mode;
 }

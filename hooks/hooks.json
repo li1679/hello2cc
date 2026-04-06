@@ -88,7 +88,31 @@
         ]
       }
     ],
+    "TeammateIdle": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/teammate-idle.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/task-lifecycle.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
       {
         "matcher": "",
         "hooks": [
@@ -144,6 +168,96 @@
         ]
       },
       {
+        "matcher": "TeamDelete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-team-delete",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-task-create",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskList",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-task-list",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskGet",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-task-get",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-task-update",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "ToolSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-tool-search",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "EnterPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-enter-plan-mode",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-exit-plan-mode",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" pre-ask-user-question",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "SendMessage",
         "hooks": [
           {
@@ -177,6 +291,96 @@
       },
       {
         "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskList",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskGet",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "ToolSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "EnterPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrator.mjs\" post-tool-use",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
         "hooks": [
           {
             "type": "command",

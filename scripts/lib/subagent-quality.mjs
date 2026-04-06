@@ -2,33 +2,91 @@ function normalizeText(value) {
   return String(value || '').trim();
 }
 
+function visibleCharCount(text) {
+  return Array.from(String(text || '').replace(/\s+/g, '')).length;
+}
+
+function lineItems(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => String(line || '').trim())
+    .filter(Boolean);
+}
+
+function lineCount(text) {
+  return lineItems(text).length;
+}
+
+function clauseCount(text) {
+  return String(text || '')
+    .split(/[.!?;:。！？；：,，、\n]+/u)
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .length;
+}
+
 function hasPathEvidence(text) {
-  return /`[^`]+`|[A-Za-z]:\\[^ \n]+|(?:^|[\s(])[\w./-]+\.[A-Za-z0-9]+/.test(text);
+  return /```[\s\S]*?```|`[^`]+`|[A-Za-z]:\\[^ \n]+|(?:^|[\s(])[./~]?[\w./-]+\.[A-Za-z0-9]+|[#@][\w.-]+/u.test(text);
 }
 
 function hasStructuredList(text) {
   return /(^|\n)(\d+\. |- |\* )/.test(text);
 }
 
+function structuredListItemCount(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .filter((line) => /^(\d+\. |- |\* )/.test(String(line || '').trim()))
+    .length;
+}
+
+function labeledSectionCount(text) {
+  const matches = String(text || '').match(/(^|\n)[\p{L}\p{N}_./# -]{2,24}[：:]\s*\S/gu);
+  return Array.isArray(matches) ? matches.length : 0;
+}
+
+function hasLabeledSections(text) {
+  return labeledSectionCount(text) > 0;
+}
+
+function hasCommandEvidence(text) {
+  return /(?:^|[\s(])(?:npm|pnpm|yarn|bun|node|python|pytest|vitest|jest|cargo|go|gradle|mvn)\b/iu.test(String(text || ''));
+}
+
 function hasValidationEvidence(text) {
-  return hasStructuredList(text) || /test|verify|validated|validation|check|checked|lint|build|review|acceptance|evidence|验证|测试|检查|回归|验收/i.test(text);
+  return (
+    hasPathEvidence(text) ||
+    hasCommandEvidence(text) ||
+    structuredListItemCount(text) >= 2 ||
+    labeledSectionCount(text) >= 2 ||
+    clauseCount(text) >= 3
+  );
 }
 
 function hasPlanStructure(text) {
-  return hasStructuredList(text) || /phase|step|risk|acceptance|并行|阶段|步骤|风险|验证/i.test(text);
+  return (
+    structuredListItemCount(text) >= 2 ||
+    labeledSectionCount(text) >= 2 ||
+    lineCount(text) >= 3 ||
+    clauseCount(text) >= 3
+  );
 }
 
-function looksBlocked(text) {
-  return /blocked|missing|need user|cannot|can't|unable|缺少|阻塞|无法|需要用户/i.test(text);
+function looksStructuredBlockerReport(text) {
+  return (
+    hasLabeledSections(text) ||
+    structuredListItemCount(text) >= 2 ||
+    lineCount(text) >= 3
+  );
 }
 
 export function validateSubagentStop(agentType, lastMessage) {
   const text = normalizeText(lastMessage);
-  if (!text || text.length < 24) {
+  if (!text || visibleCharCount(text) < 20) {
     return 'Subagent summary is too thin. Summarize concrete findings, deliverables, or blockers before stopping.';
   }
 
-  if (looksBlocked(text)) {
+  if (looksStructuredBlockerReport(text)) {
     return '';
   }
 

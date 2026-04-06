@@ -12,11 +12,11 @@ export function normalizeTag(tag) {
   return normalized.startsWith('v') ? normalized : `v${normalized}`;
 }
 
-export function versionFromTag(tag) {
+function versionFromTag(tag) {
   return normalizeTag(tag).replace(/^v/, '');
 }
 
-export function parseChangelogSections(markdown) {
+function parseChangelogSections(markdown) {
   const text = String(markdown || '');
   const matches = [...text.matchAll(CHANGELOG_SECTION_PATTERN)];
 

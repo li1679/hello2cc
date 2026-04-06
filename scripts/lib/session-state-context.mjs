@@ -44,9 +44,12 @@ function rememberableContext(context = {}) {
   return {
     mainModel: String(context.mainModel || '').trim(),
     outputStyle: String(context.outputStyle || '').trim(),
+    attachedOutputStyle: String(context.attachedOutputStyle || '').trim(),
+    criticalSystemReminder: String(context.criticalSystemReminder || '').trim(),
     currentCwd: String(context.currentCwd || '').trim(),
     toolNames: Array.isArray(context.toolNames) ? context.toolNames : [],
     agentTypes: Array.isArray(context.agentTypes) ? context.agentTypes : [],
+    surfacedAgentTypes: Array.isArray(context.surfacedAgentTypes) ? context.surfacedAgentTypes : [],
     surfacedSkills: Array.isArray(context.surfacedSkills) ? context.surfacedSkills : [],
     surfacedSkillNames: Array.isArray(context.surfacedSkillNames) ? context.surfacedSkillNames : [],
     loadedCommands: Array.isArray(context.loadedCommands) ? context.loadedCommands : [],
@@ -58,6 +61,25 @@ function rememberableContext(context = {}) {
     mcpResources: Array.isArray(context.mcpResources) ? context.mcpResources : [],
     teamName: String(context.teamName || '').trim(),
     agentName: String(context.agentName || '').trim(),
+    teamConfigPath: String(context.teamConfigPath || '').trim(),
+    taskListPath: String(context.taskListPath || '').trim(),
+    attachedTeamContext: context.attachedTeamContext && typeof context.attachedTeamContext === 'object'
+      ? context.attachedTeamContext
+      : {},
+    attachedPlanMode: context.attachedPlanMode && typeof context.attachedPlanMode === 'object'
+      ? context.attachedPlanMode
+      : {},
+    attachedAutoMode: context.attachedAutoMode && typeof context.attachedAutoMode === 'object'
+      ? context.attachedAutoMode
+      : {},
+    attachedSkillListing: context.attachedSkillListing && typeof context.attachedSkillListing === 'object'
+      ? context.attachedSkillListing
+      : {},
+    attachedRelevantMemories: Array.isArray(context.attachedRelevantMemories) ? context.attachedRelevantMemories : [],
+    attachedTeammateMailbox: context.attachedTeammateMailbox && typeof context.attachedTeammateMailbox === 'object'
+      ? context.attachedTeammateMailbox
+      : {},
+    mcpInstructionEntries: Array.isArray(context.mcpInstructionEntries) ? context.mcpInstructionEntries : [],
   };
 }
 
@@ -65,9 +87,12 @@ function hasRememberableFields(context = {}) {
   return Boolean(
     context.mainModel ||
     context.outputStyle ||
+    context.attachedOutputStyle ||
+    context.criticalSystemReminder ||
     context.currentCwd ||
     context.toolNames.length ||
     context.agentTypes.length ||
+    context.surfacedAgentTypes.length ||
     context.surfacedSkills.length ||
     context.surfacedSkillNames.length ||
     context.loadedCommands.length ||
@@ -78,7 +103,16 @@ function hasRememberableFields(context = {}) {
     context.loadedDeferredToolNames.length ||
     context.mcpResources.length ||
     context.teamName ||
-    context.agentName
+    context.agentName ||
+    context.teamConfigPath ||
+    context.taskListPath ||
+    Object.keys(context.attachedTeamContext).length ||
+    Object.keys(context.attachedPlanMode).length ||
+    Object.keys(context.attachedAutoMode).length ||
+    Object.keys(context.attachedSkillListing).length ||
+    context.attachedRelevantMemories.length ||
+    Object.keys(context.attachedTeammateMailbox).length ||
+    context.mcpInstructionEntries.length
   );
 }
 
@@ -96,6 +130,8 @@ export function rememberSessionContext(payload) {
     ...current,
     ...(context.mainModel ? { mainModel: context.mainModel } : {}),
     ...(context.outputStyle ? { outputStyle: context.outputStyle } : {}),
+    ...(context.attachedOutputStyle ? { attachedOutputStyle: context.attachedOutputStyle } : {}),
+    ...(context.criticalSystemReminder ? { criticalSystemReminder: context.criticalSystemReminder } : {}),
     ...(context.currentCwd ? { currentCwd: context.currentCwd } : {}),
     ...(context.toolNames.length ? {
       toolNames: context.toolNames,
@@ -105,6 +141,7 @@ export function rememberSessionContext(payload) {
       agentTypes: context.agentTypes,
       ...deriveAgentCapabilities(context.agentTypes),
     } : {}),
+    ...(context.surfacedAgentTypes.length ? { surfacedAgentTypes: context.surfacedAgentTypes } : {}),
     ...(context.surfacedSkills.length ? { surfacedSkills: context.surfacedSkills } : {}),
     ...(context.surfacedSkillNames.length ? { surfacedSkillNames: context.surfacedSkillNames } : {}),
     ...(context.loadedCommands.length ? { loadedCommands: context.loadedCommands } : {}),
@@ -116,6 +153,44 @@ export function rememberSessionContext(payload) {
     ...(context.mcpResources.length ? { mcpResources: context.mcpResources } : {}),
     ...(context.teamName ? { teamName: context.teamName } : {}),
     ...(context.agentName ? { agentName: context.agentName } : {}),
+    ...(context.teamConfigPath ? { teamConfigPath: context.teamConfigPath } : {}),
+    ...(context.taskListPath ? { taskListPath: context.taskListPath } : {}),
+    ...(Object.keys(context.attachedTeamContext).length ? {
+      attachedTeamContext: {
+        ...(current.attachedTeamContext || {}),
+        ...context.attachedTeamContext,
+      },
+    } : {}),
+    ...(Object.keys(context.attachedPlanMode).length ? {
+      attachedPlanMode: {
+        ...(current.attachedPlanMode || {}),
+        ...context.attachedPlanMode,
+      },
+    } : {}),
+    ...(Object.keys(context.attachedAutoMode).length ? {
+      attachedAutoMode: {
+        ...(current.attachedAutoMode || {}),
+        ...context.attachedAutoMode,
+      },
+    } : {}),
+    ...(Object.keys(context.attachedSkillListing).length ? {
+      attachedSkillListing: {
+        ...(current.attachedSkillListing || {}),
+        ...context.attachedSkillListing,
+      },
+    } : {}),
+    ...(context.attachedRelevantMemories.length ? {
+      attachedRelevantMemories: context.attachedRelevantMemories,
+    } : {}),
+    ...(Object.keys(context.attachedTeammateMailbox).length ? {
+      attachedTeammateMailbox: {
+        ...(current.attachedTeammateMailbox || {}),
+        ...context.attachedTeammateMailbox,
+      },
+    } : {}),
+    ...(context.mcpInstructionEntries.length ? {
+      mcpInstructionEntries: context.mcpInstructionEntries,
+    } : {}),
   }));
 }
 

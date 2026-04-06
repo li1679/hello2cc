@@ -26,6 +26,50 @@ export function requestOutputShape(requestProfile = {}) {
     return 'one_sentence_judgment_then_markdown_table_then_recommendation';
   }
 
+  if (requestProfile?.handoff) {
+    return 'handoff_status_then_compact_table_then_reassignment_or_follow_up';
+  }
+
+  if (requestProfile?.teamStatus) {
+    return 'team_status_then_compact_table_then_next_actions';
+  }
+
+  if (requestProfile?.plan) {
+    return 'ordered_plan_with_validation_and_open_questions';
+  }
+
+  if (requestProfile?.currentInfo) {
+    return 'current_info_status_then_sources_then_uncertainty';
+  }
+
+  if (requestProfile?.capabilityQuery || requestProfile?.capabilityProbeShape) {
+    return 'direct_answer_then_visible_capabilities_then_gap_or_next_step';
+  }
+
+  if (requestProfile?.review && requestProfile?.verify) {
+    return 'findings_first_then_verification_evidence_then_risk_call';
+  }
+
+  if (requestProfile?.review) {
+    return 'findings_first_then_open_questions_then_change_summary';
+  }
+
+  if (requestProfile?.verify) {
+    return 'verification_status_then_evidence_then_gaps';
+  }
+
+  if (requestProfile?.explain || requestProfile?.claudeGuide) {
+    return 'direct_explanation_then_key_points_and_references';
+  }
+
+  if (requestProfile?.release) {
+    return 'release_status_then_checklist_then_notes';
+  }
+
+  if (requestProfile?.codeResearch || requestProfile?.research) {
+    return 'direct_findings_with_paths_and_unknowns';
+  }
+
   if (requestProfile?.wantsStructuredOutput) {
     return 'prefer_markdown_structure_then_ascii_if_needed';
   }
@@ -54,28 +98,32 @@ export function requestNeedsParallelWorkers(requestProfile = {}) {
 }
 
 export function requestNeedsCapabilityDiscovery(requestProfile = {}) {
-  return Boolean(
-    requestProfile?.capabilityQuery ||
+  const explicitDiscoveryTopic = Boolean(
     requestProfile?.tools ||
     requestProfile?.mcp ||
-    requestProfile?.skillWorkflowLike,
+    (requestProfile?.skillSurface && !requestProfile?.workflowContinuation),
   );
+
+  return Boolean(
+    explicitDiscoveryTopic ||
+    (requestProfile?.capabilityQuery && !requestProfile?.workflowContinuation) ||
+    (requestProfile?.capabilityProbeShape && !requestProfile?.workflowContinuation),
+  );
+}
+
+export function requestNeedsGuideSurface(requestProfile = {}) {
+  return Boolean(requestProfile?.claudeGuide);
 }
 
 export function requestNeedsWorkflowRouting(requestProfile = {}) {
   return Boolean(
     requestProfile?.workflowContinuation ||
-    requestProfile?.skillSurface ||
-    requestProfile?.claudeGuide,
+    requestProfile?.skillSurface,
   );
 }
 
 export function requestNeedsPlanning(requestProfile = {}) {
   return Boolean(requestProfile?.plan);
-}
-
-export function requestNeedsCurrentInfo(requestProfile = {}) {
-  return Boolean(requestProfile?.currentInfo);
 }
 
 export function requestNeedsDecisionHelp(requestProfile = {}) {

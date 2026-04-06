@@ -43,7 +43,15 @@ export function isolatedEnv(overrides = {}) {
 }
 
 export function writeTranscript(root, sessionId, payload, extraRecords = []) {
-  const transcriptPath = join(root, 'session.jsonl');
+  const transcriptDir = join(root, 'transcripts');
+  if (!existsSync(transcriptDir)) {
+    mkdirSync(transcriptDir, { recursive: true });
+  }
+
+  const safeSessionId = String(sessionId || 'session')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'session';
+  const transcriptPath = join(transcriptDir, `${safeSessionId}.jsonl`);
   const records = [
     {
       type: 'system',

@@ -23,6 +23,7 @@ function hasAnyName(values, names) {
 
 const TOOL_CAPABILITY_RULES = [
   { key: 'agentToolAvailable', names: ['Agent'] },
+  { key: 'claudeCodeGuideAvailable', names: ['ClaudeCodeGuide', 'claude-code-guide', 'Claude Code Guide'] },
   { key: 'skillToolAvailable', names: ['Skill'] },
   { key: 'discoverSkillsAvailable', names: ['DiscoverSkills'] },
   { key: 'toolSearchAvailable', names: ['ToolSearch'] },
@@ -31,6 +32,7 @@ const TOOL_CAPABILITY_RULES = [
   { key: 'sendMessageAvailable', names: ['SendMessage'] },
   { key: 'askUserQuestionAvailable', names: ['AskUserQuestion'] },
   { key: 'enterPlanModeAvailable', names: ['EnterPlanMode'] },
+  { key: 'exitPlanModeAvailable', names: ['ExitPlanMode'] },
   { key: 'enterWorktreeAvailable', names: ['EnterWorktree'] },
   { key: 'taskCreateAvailable', names: ['TaskCreate'] },
   { key: 'taskGetAvailable', names: ['TaskGet'] },
@@ -50,7 +52,7 @@ const TOOL_CAPABILITY_RULES = [
 ];
 
 const AGENT_CAPABILITY_RULES = [
-  { key: 'claudeCodeGuideAvailable', names: ['claude-code-guide', 'Claude Code Guide'] },
+  { key: 'claudeCodeGuideAvailable', names: ['claude-code-guide', 'Claude Code Guide', 'ClaudeCodeGuide'] },
   { key: 'exploreAgentAvailable', names: ['Explore'] },
   { key: 'planAgentAvailable', names: ['Plan'] },
   { key: 'generalPurposeAgentAvailable', names: ['general-purpose', 'General-Purpose', 'General Purpose'] },
