@@ -61,6 +61,8 @@ test('subagent-context exposes plain worker capability as structured state', () 
   assert.equal(state.recovery_playbook.fail_closed, true);
   assert.equal(state.teammate, undefined);
   assert.match(context, /judgment first/i);
+  assert.ok(context.length < 4000, `expected compact plain worker context, got ${context.length} chars`);
+  assert.ok(context.split(/\r?\n/).length < 30, 'expected plain worker context to stay compact');
 });
 
 test('subagent-context exposes teammate identity and includes team workflow guidance', () => {
@@ -221,64 +223,20 @@ test('subagent-context exposes current assigned tasks for a teammate from shared
       assigned_by: 'team-lead',
     },
   ]);
-  assert.deepEqual(state.coordination.mailbox_events, [
-    {
-      type: 'task_assignment',
-      teammate_name: 'frontend-dev',
-      summary: '[Task Assigned] #7 - Implement API',
-      task_id: '7',
-      task_ids: ['7'],
-      subject: 'Implement API',
-      description: 'Implement the API slice and keep the contract in sync.',
-      assigned_by: 'team-lead',
-      recorded_at: '2026-04-04T00:00:01.000Z',
-      follow_up: 'task_pickup',
-    },
-  ]);
+  assert.equal(state.coordination.mailbox_events, undefined);
   assert.deepEqual(state.coordination.mailbox_summary, {
     total_events: 1,
     latest_event_type: 'task_assignment',
     latest_summary: '[Task Assigned] #7 - Implement API',
-    event_count_by_type: {
-      task_assignment: 1,
-    },
-    event_types: ['task_assignment'],
-    teammate_names: ['frontend-dev'],
-    task_ids: ['7'],
     requires_task_pickup: true,
     summary_lines: ['[Task Assigned] #7 - Implement API'],
   });
-  const [pickUpAction, blockerAction] = state.coordination.team_action_items;
-  assert.deepEqual(state.coordination.team_action_items, [
-    {
-      action_type: 'pick_up_assignment',
-      priority: 95,
-      task_id: '7',
-      teammate_name: 'frontend-dev',
-      assigned_by: 'team-lead',
-      recorded_at: pickUpAction.recorded_at,
-      next_tool: 'TaskGet/TaskUpdate(status:"in_progress")',
-      summary: '[Task Assigned] #7 - Implement API',
-    },
-    {
-      action_type: 'resolve_blocker',
-      priority: 85,
-      task_id: '7',
-      teammate_name: 'frontend-dev',
-      blocker_task_ids: ['3'],
-      next_tool: 'TaskGet/TaskUpdate/SendMessage',
-      summary: 'Task #7 Implement API is blocked by #3',
-    },
-  ]);
+  assert.equal(state.coordination.team_action_items, undefined);
   assert.deepEqual(state.coordination.team_action_summary, {
     total_actions: 2,
     top_action_type: 'pick_up_assignment',
     top_priority: 95,
-    action_types: ['pick_up_assignment', 'resolve_blocker'],
-    teammate_names: ['frontend-dev'],
-    task_ids: ['7'],
     requires_immediate_response: true,
-    requires_compact_table: true,
     recommended_response_shape: 'one_line_plus_compact_markdown_table',
     preferred_table_columns: ['priority', 'action', 'task', 'teammate', 'next_tool'],
     summary_lines: [
@@ -300,6 +258,8 @@ test('subagent-context exposes current assigned tasks for a teammate from shared
   assert.match(context, /#7 <- #3/);
   assert.match(context, /task assignment/i);
   assert.match(context, /recovery_playbook|pending_assignment_mailbox|blocked_task_continuity/);
+  assert.ok(context.length < 6500, `expected compact teammate context, got ${context.length} chars`);
+  assert.ok(context.split(/\r?\n/).length < 35, 'expected teammate context to stay compact');
 });
 
 test('subagent-context uses handoff specialization when teammate work is blocked', () => {
