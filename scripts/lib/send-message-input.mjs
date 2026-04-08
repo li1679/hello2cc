@@ -1,58 +1,29 @@
-function trimmed(value) {
-  return String(value || '').trim();
-}
+import { summarizePlainTextMessage } from './send-message-helpers.mjs';
+import {
+  activeTeamName,
+  messageTarget,
+  structuredMessageType,
+  trimmed,
+} from './send-message-session-helpers.mjs';
 
-function collapseWhitespace(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function sanitizePreviewText(value) {
-  return collapseWhitespace(
-    String(value || '')
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/`([^`]*)`/g, '$1')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/[*_~>#-]+/g, ' ')
-      .replace(/[|[\]{}()]+/g, ' ')
-      .replace(/[^\p{L}\p{N}\p{P}\p{Zs}]/gu, ' '),
-  );
-}
-
-function truncatePreview(value, limit) {
-  const chars = Array.from(String(value || ''));
-  if (chars.length <= limit) return value;
-  return `${chars.slice(0, limit).join('')}…`;
-}
-
-function summarizeMessage(message) {
-  const normalized = sanitizePreviewText(message);
-  if (!normalized) {
-    return 'follow-up message';
-  }
-
-  const words = normalized.split(/\s+/).filter(Boolean);
-  if (words.length >= 3) {
-    return truncatePreview(words.slice(0, 8).join(' '), 60);
-  }
-
-  return truncatePreview(normalized, 24);
-}
-
-export function normalizeSendMessageInput(input = {}) {
+export function normalizeSendMessageInput(input = {}, sessionContext = {}) {
   const summary = trimmed(input?.summary);
   const message = input?.message;
+  const target = messageTarget(input);
+  const structuredType = structuredMessageType(input);
 
-  if (summary || typeof message !== 'string') {
-    return { input, changed: false, reason: '' };
+  if (!target || summary || typeof message !== 'string' || structuredType) {
+    return { input, changed: false, blocked: false, reason: '' };
   }
 
-  const generatedSummary = summarizeMessage(message);
+  const generatedSummary = summarizePlainTextMessage(message);
   return {
     input: {
       ...input,
       summary: generatedSummary,
     },
     changed: true,
+    blocked: false,
     reason: `hello2cc injected SendMessage.summary="${generatedSummary}" for plain-text compatibility`,
   };
 }

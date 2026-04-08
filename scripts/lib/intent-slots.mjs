@@ -17,6 +17,17 @@ export function normalizeIntentText(value) {
     .trim();
 }
 
+function stripArtifactNoise(value) {
+  return String(value || '')
+    .replace(/```[\s\S]*?```/gu, ' ')
+    .replace(/`(?:[A-Za-z]:\\|[./~]?[\w./-]+\.[A-Za-z0-9]+(?::\d+(?::\d+)?)?|#L\d+(?:C\d+)?|diff --git[\s\S]*?)`/gu, ' ')
+    .replace(/(?:[A-Za-z]:\\|(?:^|[\s(])[./~]?[\w./-]+\.[A-Za-z0-9]+(?::\d+(?::\d+)?)?)/gu, ' ')
+    .replace(/\b#L\d+(?:C\d+)?\b/gu, ' ')
+    .replace(/(^|\n)(diff --git|@@ |--- [^\n]+|\+\+\+ [^\n]+)/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function aliasPattern(alias) {
   if (alias instanceof RegExp) {
     return alias;
@@ -66,14 +77,17 @@ export function promptMentionsAny(normalizedText, names = []) {
 }
 
 export function extractIntentSlots(prompt) {
-  const text = normalizeIntentText(prompt);
+  const raw = String(prompt || '');
+  const text = normalizeIntentText(raw);
+  const lexicalText = normalizeIntentText(stripArtifactNoise(raw));
 
   return {
     text,
+    lexicalText,
     questionIntent: hasQuestionIntent(text),
-    actions: collectConcepts(text, ACTION_LEXICON),
-    topics: collectConcepts(text, TOPIC_LEXICON),
-    collaboration: collectConcepts(text, COLLABORATION_LEXICON),
-    structure: collectConcepts(text, STRUCTURE_LEXICON),
+    actions: collectConcepts(lexicalText, ACTION_LEXICON),
+    topics: collectConcepts(lexicalText, TOPIC_LEXICON),
+    collaboration: collectConcepts(lexicalText, COLLABORATION_LEXICON),
+    structure: collectConcepts(lexicalText, STRUCTURE_LEXICON),
   };
 }

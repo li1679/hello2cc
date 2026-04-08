@@ -12,9 +12,11 @@ function validateSubagentHooks(context, hooks) {
   }
 
   const subagentStop = hooks.SubagentStop;
+  const teammateIdle = hooks.TeammateIdle;
+  const taskCreated = hooks.TaskCreated;
   const taskCompleted = hooks.TaskCompleted;
-  if (!Array.isArray(subagentStop) || !Array.isArray(taskCompleted)) {
-    context.fail('hooks.json should define SubagentStop and TaskCompleted guards');
+  if (!Array.isArray(subagentStop) || !Array.isArray(teammateIdle) || !Array.isArray(taskCreated) || !Array.isArray(taskCompleted)) {
+    context.fail('hooks.json should define SubagentStop, TeammateIdle, TaskCreated, and TaskCompleted guards');
     return;
   }
 
@@ -23,6 +25,12 @@ function validateSubagentHooks(context, hooks) {
     context.fail('hooks.json should attach SubagentStop quality gates for Explore, Plan, and general-purpose');
   } else {
     context.ok('hooks subagent stop guards');
+  }
+
+  if (teammateIdle.length === 0) {
+    context.fail('hooks.json should define TeammateIdle hooks for teammate mailbox continuity');
+  } else {
+    context.ok('hooks teammate idle continuity');
   }
 
   context.ok('hooks task lifecycle guards');

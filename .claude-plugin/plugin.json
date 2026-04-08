@@ -1,7 +1,7 @@
 {
   "name": "hello2cc",
-  "version": "0.4.3",
-  "description": "Thin Claude Code plugin that exposes host state, adapts protocol edges, and debounces repeated failures for third-party models.",
+  "version": "0.4.8",
+  "description": "Claude Code alignment plugin that drives third-party models toward Opus-compatible workflows, tool usage, and output style.",
   "author": {
     "name": "hello2cc"
   },
@@ -19,12 +19,6 @@
   ],
   "outputStyles": "./output-styles",
   "userConfig": {
-    "compatibility_mode": {
-      "title": "Compatibility Mode",
-      "type": "string",
-      "description": "插件兼容模式。默认 full；当需要与 OMC 等同类 additionalContext / system-reminder 插件共存时，填写 sanitize-only，仅保留 Agent 参数净化（model / team / isolation），不再注入 SessionStart / UserPromptSubmit / SubagentStart 额外上下文。",
-      "sensitive": false
-    },
     "routing_policy": {
       "title": "Routing Policy",
       "type": "string",

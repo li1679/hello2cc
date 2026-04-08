@@ -44,6 +44,7 @@ test('session-start surfaces host tools and native agents as structured state', 
     ],
     agents: ['Claude Code Guide', 'Explore', 'Plan', 'general-purpose'],
   }, env);
+  const context = output.hookSpecificOutput.additionalContext;
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
   assert.ok(state.host.tools.includes('AskUserQuestion'));
@@ -54,6 +55,8 @@ test('session-start surfaces host tools and native agents as structured state', 
   assert.ok(state.host.agents.some((agent) => agent.name === 'Plan' && agent.role === '只读规划'));
   assert.ok(state.host.agents.some((agent) => agent.name === 'General-Purpose' && agent.role === '通用执行'));
   assert.ok(state.host.agents.some((agent) => agent.name === 'Claude Code Guide'));
+  assert.match(context, /Plan.*Explore.*只读 helper|只读 helper.*EnterPlanMode/i);
+  assert.match(context, /路径清晰的实现|clear bug fix|默认直接执行/i);
 });
 
 test('session-start surfaces transcript-derived skills workflows deferred tools and MCP resources', () => {
@@ -156,4 +159,140 @@ test('session-start exposes proxy WebSearch mode as state instead of prose routi
   assert.equal(state.websearch.tool, 'WebSearch');
   assert.equal(state.websearch.mode, 'proxy-conditional');
   assert.equal(state.websearch.degraded, undefined);
+});
+
+test('session-start surfaces transcript attachment deltas reminders and team context as host state', () => {
+  const env = isolatedEnv();
+  const sessionId = 'session-attachment-signals';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Agent'],
+    agents: ['Explore', 'Plan', 'general-purpose'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      attachments: [
+        {
+          type: 'agent_listing_delta',
+          addedTypes: ['Explore', 'general-purpose'],
+          addedLines: ['Explore', 'General-Purpose'],
+          removedTypes: [],
+          isInitial: true,
+        },
+        {
+          type: 'output_style',
+          style: 'executive-summary',
+        },
+        {
+          type: 'critical_system_reminder',
+          content: 'Always obey the latest host-side output contract and permission boundary.',
+        },
+        {
+          type: 'team_context',
+          teamName: 'delivery-squad',
+          agentName: 'frontend-dev',
+          teamConfigPath: '/tmp/teams/delivery-squad/config.json',
+          taskListPath: '/tmp/tasks/delivery-squad',
+        },
+      ],
+    },
+  ]);
+
+  const output = run('session-start', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Agent'],
+    agents: ['Explore', 'Plan', 'general-purpose'],
+  }, env);
+  const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+
+  assert.equal(state.host.active_team, 'delivery-squad');
+  assert.deepEqual(state.host.delta_surfaces.agents, [
+    {
+      name: 'Explore',
+      role: '只读搜索',
+      tool_surface: ['Glob/Grep/Read', 'Bash(只读)'],
+    },
+    {
+      name: 'General-Purpose',
+      role: '通用执行',
+      tool_surface: ['*'],
+    },
+  ]);
+  assert.equal(state.host.attachments.output_style, 'executive-summary');
+  assert.equal(state.host.attachments.critical_system_reminder.active, true);
+  assert.match(state.host.attachments.critical_system_reminder.preview, /output contract/i);
+  assert.deepEqual(state.host.attachments.team_context, {
+    team: 'delivery-squad',
+    agent: 'frontend-dev',
+    team_config_path: '/tmp/teams/delivery-squad/config.json',
+    task_list_path: '/tmp/tasks/delivery-squad',
+  });
+});
+
+test('session-start surfaces mailbox memories skill listings and MCP instructions from transcript attachments', () => {
+  const env = isolatedEnv();
+  const sessionId = 'session-rich-attachments';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Agent', 'ListMcpResources', 'ReadMcpResource'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      attachments: [
+        {
+          type: 'skill_listing',
+          content: '- brainstorm: Help ideate directions\n- release: Ship and publish changes',
+          skillCount: 2,
+          isInitial: true,
+        },
+        {
+          type: 'relevant_memories',
+          memories: [
+            {
+              path: '/repo/.claude/memory.md',
+              header: 'Saved memory from /repo/.claude/memory.md',
+              content: 'Prefer surfaced capability boundaries before ToolSearch fallback.',
+              mtimeMs: 0,
+            },
+          ],
+        },
+        {
+          type: 'mcp_instructions_delta',
+          addedNames: ['github'],
+          addedBlocks: ['Use github issue and comment tools for issue workflows.'],
+          removedNames: [],
+        },
+        {
+          type: 'teammate_mailbox',
+          messages: [
+            {
+              from: 'backend-owner',
+              text: 'Blocked on task #7; please review the API contract before I continue.',
+              timestamp: '2026-04-05T12:00:00.000Z',
+              summary: 'blocked on task #7',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+
+  const output = run('session-start', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Agent', 'ListMcpResources', 'ReadMcpResource'],
+  }, env);
+  const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+
+  assert.deepEqual(state.host.attachments.skill_listing.names, ['brainstorm', 'release']);
+  assert.equal(state.host.attachments.skill_listing.skill_count, 2);
+  assert.equal(state.host.attachments.relevant_memories.count, 1);
+  assert.equal(state.host.attachments.relevant_memories.items[0].path, '/repo/.claude/memory.md');
+  assert.deepEqual(state.host.attachments.mcp_instructions.server_names, ['github']);
+  assert.equal(state.host.attachments.teammate_mailbox.message_count, 1);
+  assert.equal(state.host.attachments.teammate_mailbox.messages[0].from, 'backend-owner');
+  assert.equal(state.host.attachments.teammate_mailbox.messages[0].summary, 'blocked on task #7');
 });

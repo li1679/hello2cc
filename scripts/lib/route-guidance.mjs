@@ -1,27 +1,44 @@
 import { buildCapabilityPolicySnapshot, buildRouteCapabilityPolicyLines } from './capability-policy-registry.mjs';
-import { buildPromptHostState, compactState } from './host-state-context.mjs';
+import { buildRouteDecisionTieBreakers } from './decision-tie-breakers.mjs';
+import { buildPromptHostState, compactState, hasDynamicPromptHostState } from './host-state-context.mjs';
 import { analyzeIntentProfile, summarizeIntentForState } from './intent-profile.mjs';
-
-function buildRouteDecisionLines(signals = {}) {
-  const lines = [
-    '可见文本默认跟随用户当前语言；不要输出“我打算 / 我应该 / let’s”这类内部思考式元叙述。',
-    '先遵守宿主能力优先级，再在被允许的能力面内选工具；不要把未 surfaced 的工具、workflow、agent、MCP 能力或权限当成已确认存在。',
-  ];
-
-  if (signals.verify) {
-    lines.push('宣称完成前先做最贴近改动范围的验证；没验证就明确说没验证。');
-  }
-
-  return lines;
-}
+import { buildRendererContract } from './renderer-contracts.mjs';
+import { buildRouteDecisionLines } from './route-decision-lines.mjs';
+import {
+  buildRouteExecutionPlaybook,
+  buildRouteRecoveryPlaybook,
+  buildRouteResponseContract,
+} from './route-state-playbooks.mjs';
+import { buildRouteSpecializationCandidates } from './specialization-candidates.mjs';
+import { workflowContinuitySnapshot } from './tool-policy-state.mjs';
 
 export function buildRouteStateContext(prompt, sessionContext = {}) {
   const signals = analyzeIntentProfile(prompt, sessionContext);
+  const continuity = workflowContinuitySnapshot(sessionContext);
+  const responseContract = buildRouteResponseContract(signals, sessionContext, continuity);
+  const rendererContract = buildRendererContract(responseContract, {
+    outputStyle: sessionContext?.outputStyle,
+    attachedOutputStyle: sessionContext?.attachedOutputStyle,
+  });
+  const executionPlaybook = buildRouteExecutionPlaybook(signals, sessionContext, continuity);
+  const recoveryPlaybook = buildRouteRecoveryPlaybook(sessionContext, continuity, signals);
+  const decisionTieBreakers = buildRouteDecisionTieBreakers(signals, sessionContext, continuity);
+  const specializationCandidates = buildRouteSpecializationCandidates(signals, sessionContext, continuity);
   const hostState = buildPromptHostState(sessionContext);
+  const hasDynamicHostState = hasDynamicPromptHostState(sessionContext);
   const routeLines = buildRouteCapabilityPolicyLines(signals, sessionContext);
-  const decisionLines = buildRouteDecisionLines(signals);
+  const decisionLines = buildRouteDecisionLines(signals, sessionContext, {
+    continuity,
+    responseContract,
+    rendererContract,
+    executionPlaybook,
+    recoveryPlaybook,
+    decisionTieBreakers,
+    specializationCandidates,
+  });
+  const shouldForceSnapshot = Boolean(signals.artifactShapeGuided);
 
-  if (!routeLines.length && !hostState) {
+  if (!routeLines.length && !hasDynamicHostState && !shouldForceSnapshot) {
     return '';
   }
 
@@ -30,15 +47,21 @@ export function buildRouteStateContext(prompt, sessionContext = {}) {
     decision_model: 'host_defined_capability_policies',
     intent: summarizeIntentForState(signals),
     policy: buildCapabilityPolicySnapshot(sessionContext, signals),
+    response_contract: responseContract,
+    renderer_contract: rendererContract,
+    execution_playbook: executionPlaybook,
+    recovery_playbook: recoveryPlaybook,
+    decision_tie_breakers: decisionTieBreakers,
+    specialization_candidates: specializationCandidates,
     ...hostState,
   });
 
   return [
     '# hello2cc routing',
     '',
-    'Treat the JSON snapshot below as the authoritative host-side intent, capability policy, and guard-rail state.',
-    'The prose only adds execution order and tie-breakers. The model still chooses within that policy envelope; it does not invent a parallel private workflow.',
-    'Higher-priority user instructions, native tool contracts, explicit tool inputs, and real host permission results always win.',
+    '按下面的 JSON snapshot 执行；把它当成宿主给出的 intent、capability policy、rendering contract 和 guard-rail state。',
+    '用正文只补执行顺序和 tie-breaker；不要自造并行私有 workflow。',
+    '更高优先级的用户指令、原生工具契约、显式工具输入和宿主真实权限结果始终覆盖这里。',
     '',
     '## Decision backbone',
     ...decisionLines.map((line, index) => `${index + 1}. ${line}`),
@@ -50,4 +73,3 @@ export function buildRouteStateContext(prompt, sessionContext = {}) {
     '```',
   ].join('\n');
 }
-

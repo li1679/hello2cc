@@ -4,14 +4,27 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 [![Publish](https://img.shields.io/github/actions/workflow/status/hellowind777/hello2cc/publish.yml?label=publish)](https://github.com/hellowind777/hello2cc/actions/workflows/publish.yml)
 
-让第三方模型在 Claude Code 里用得更自然。
+让第三方模型在 Claude Code 里尽量按 Opus 一样思考、运行、选工具和输出。
 
 `hello2cc` 不负责替你接入模型、管理网关、配置账号权限。  
 它解决的是另一层问题：
 
-> 当你已经通过 **CCSwitch** 或其他映射方式把 GPT、Kimi、DeepSeek、Gemini、Qwen 等第三方模型接进 Claude Code 后，`hello2cc` 帮它们更容易发现并正确使用当前会话里已经可用的能力。
+> 当你已经通过 **CCSwitch** 或其他映射方式把 GPT、Kimi、DeepSeek、Gemini、Qwen 等第三方模型接进 Claude Code 后，`hello2cc` 会把它们继续往 Opus-compatible 的 Claude Code 原生工作方式上推：原生能力优先级、工具/agent/team 选择、失败恢复，以及输出风格。
 
 **语言：** [English](./README.md) | 简体中文
+
+---
+
+## 🆕 0.4.8 相对 0.4.7 的变化
+
+这次版本主要保持 `0.4.7` 的运行时行为基线不变：
+
+| 0.4.8 说明 | 你更容易感受到的结果 |
+|---|---|
+| 运行时路由基线保持 `0.4.7` 行为 | team 重试、task tracking、current-info 等行为不需要新的迁移适配 |
+| 不需要额外改配置 | 现有 Claude Code、CCSwitch 和插件配置可以继续沿用 |
+| 当前用户可感知修复继续生效 | 原生风格的 team 重试回退与最近的 WebSearch 整形会继续保留 |
+| README 已刷新到 `0.4.8` 基线 | 升级说明已更新到当前版本，但不会改变正常使用方式 |
 
 ---
 
@@ -22,8 +35,9 @@
 | 明明已有 skill 或 workflow，模型却反复重写流程 | 更倾向续用已 surfaced 或已加载的流程 |
 | 明明 MCP resource 或工具已经可直接调用，模型却还在绕路 | 更容易优先走当前会话里已经可用的能力 |
 | 普通并行 worker 被误判成 team / teammate 语义 | 减少可避免的 agent 路由错误 |
-| 模型能回答，但不会选合适的 Claude Code 能力入口 | 让工具、agent、workflow、MCP 的使用更自然 |
-| 多个插件同时启用，提示互相打架 | 提供更安静的兼容模式 |
+| 模型能回答，但不会选合适的 Claude Code 能力入口 | 把工具、agent、workflow、MCP 的选择压回 Claude Code 原生优先级 |
+| 模型过度依赖固定措辞或关键词提示 | 改成在宿主公开候选内做语言无关的语义匹配 |
+| 输出风格和原生 Opus 差异很大 | 强制收敛到更接近原生 Claude Code 的结果导向风格 |
 | 对话里元叙述过多 | 更接近简洁、行动优先的原生风格 |
 
 ---
@@ -52,8 +66,8 @@
 |---|---|
 | 安装流程 | 3 步 |
 | 安装后额外入口命令 | 0 |
-| 常见配置方案 | 3 种 |
-| 核心目标 | 1 个 —— 让第三方模型更自然地使用 Claude Code |
+| 常见配置方案 | 2 种 |
+| 核心目标 | 1 个 —— 让第三方模型尽量按原生 Claude Code / Opus 习惯工作 |
 
 ---
 
@@ -81,7 +95,7 @@
 
 ### Agents 与 teams
 
-一次性并行任务更容易保留普通 agent 路径，持续协作任务更容易走团队路径。
+一次性并行任务更容易保留普通 agent 路径，持续协作任务更容易走真实的 team + task board 路径。
 
 </td>
 <td width="50%">
@@ -108,7 +122,7 @@ cd hello2cc
 ### 2）添加本地 marketplace
 
 ```bash
-claude plugin marketplace add "<repo-path>"
+claude plugins marketplace add "<repo-path>"
 ```
 
 把 `<repo-path>` 替换成你本地 `hello2cc` 仓库路径。
@@ -116,24 +130,27 @@ claude plugin marketplace add "<repo-path>"
 ### 3）安装插件
 
 ```bash
-claude plugin install hello2cc@hello2cc-local
+claude plugins install hello2cc@hello2cc-local
 ```
 
-然后重开 Claude Code，或执行 `/reload`。
+然后重开 Claude Code，或执行 `/reload-plugins`。
 
 ### 你会看到什么
 
 - 不需要再额外输入特殊入口命令
+- 安装插件不会再向 Claude Code 的 settings 写入 `agent=hello2cc:native`
+- 插件启用状态继续由 Claude Code 自己管理，而不是由插件随包附带的 `settings.json` 决定
 - 第三方模型更容易直接使用当前会话已暴露的能力
 - 普通并行 agent 更不容易误走错误路径
+- team/subagent 场景更不容易因为注入上下文过重而放大 UI 重绘问题
 
 ---
 
 ## 🔧 推荐配置
 
-### 方案 A：尽量保持默认
+### 方案 A：尽量保持默认强对齐
 
-适合：你的模型映射已经由 **CCSwitch** 处理，只想让行为更顺一点。
+适合：你的模型映射已经由 **CCSwitch** 处理，希望 hello2cc 直接按默认强对齐层工作。
 
 ```json
 {
@@ -155,15 +172,12 @@ claude plugin install hello2cc@hello2cc-local
 如果真实模型落点由 **CCSwitch** 控制，就继续把真实映射放在 CCSwitch 里。  
 在 `hello2cc` 里优先使用稳定的 Claude 槽位值，例如 `inherit`、`opus`、`sonnet`、`haiku`。
 
-### 方案 C：和其他插件安静共存
+### 0.4.8 特别加强了什么
 
-适合：多个插件一起注入提示，导致会话太吵。
-
-```json
-{
-  "compatibility_mode": "sanitize-only"
-}
-```
+- 保持 `0.4.7` 的运行时行为基线不变
+- 现有用户升级后不需要新增迁移动作
+- 原生风格的 team 重试回退路径继续保留
+- 最近针对 current-info / WebSearch 的行为收紧继续保留
 
 ---
 
@@ -190,13 +204,13 @@ flowchart LR
 如果你修改了本地仓库，或者想完整重装：
 
 ```bash
-claude plugin uninstall --scope user hello2cc@hello2cc-local
-claude plugin marketplace remove hello2cc-local
-claude plugin marketplace add "<repo-path>"
-claude plugin install hello2cc@hello2cc-local
+claude plugins uninstall --scope user hello2cc@hello2cc-local
+claude plugins marketplace remove hello2cc-local
+claude plugins marketplace add "<repo-path>"
+claude plugins install hello2cc@hello2cc-local
 ```
 
-然后重开 Claude Code，或执行 `/reload`。
+然后重开 Claude Code，或执行 `/reload-plugins`。
 
 ---
 
@@ -206,9 +220,14 @@ claude plugin install hello2cc@hello2cc-local
 
 按这个顺序检查：
 
-1. 重开 Claude Code 或执行 `/reload`
+1. 重开 Claude Code 或执行 `/reload-plugins`
 2. 确认插件已安装并启用
 3. 如果你是从本地仓库升级，先完整重装一次
+
+### 禁用插件或执行 `/reload` 后，`hello2cc:native` 还显示着
+
+这通常是 Claude Code 当前会话或历史恢复出来的 agent 状态残留，不等于插件又被重新启用了。
+现在的 `hello2cc` 已不再通过插件侧 `settings.json` 强行写入 `agent=hello2cc:native`；完整重装后，新会话不会再继续产生这种默认注入。
 
 ### 模型还是没有使用你想要的 skill、工具或 MCP
 
@@ -220,24 +239,23 @@ claude plugin install hello2cc@hello2cc-local
 
 ### 多个插件一起启用时感觉很乱
 
-可以使用：
-
-```json
-{
-  "compatibility_mode": "sanitize-only"
-}
-```
-
-如果你在插件配置界面里一时没看到它：
-
-1. 查找名为 `Compatibility Mode` 的字段
-2. 升级或重装到最新本地版本
-3. 在旧版本里继续翻后面的分页字段，因为它之前排在表单较后位置
+当前版本不再提供 `sanitize-only` 这类把 hello2cc 降成轻量兼容层的模式。  
+如果多个插件同时注入提示，优先保留一个主导行为对齐层；需要时禁用冲突插件或调整它们的提示，避免让多个插件同时争夺主工作流。
 
 ### 仍然遇到 `summary is required when message is a string`
 
 请升级到最新版本，重新加载会话，必要时重装插件。  
 新版本已为纯文本 `SendMessage` 增加兼容处理。
+
+### team 缺失或删除后，重试 teammate 时出现 hello2cc 红字拦截
+
+请升级到 `0.4.8` 后重新加载插件。  
+当前版本已经移除显式 teammate 重试时的插件侧前置 deny，missing-team 会改回走 Claude Code 原生的 team 报错路径。
+
+### current-info 或对比题经常搜不到结果
+
+请升级到 `0.4.6` 或更高版本后重新加载插件。  
+近几个版本已经进一步收紧短 query 规则，并把 `Did 0 searches` 明确视为一次空搜索而不是成功结果。
 
 ---
 
@@ -265,6 +283,13 @@ claude plugin install hello2cc@hello2cc-local
 </details>
 
 <details>
+<summary><strong>安装后会强制把当前主线程切成 <code>hello2cc:native</code> 吗？</strong></summary>
+
+不会。插件只是提供一个可用的 native agent 选项，不再向 Claude Code 注入默认 `agent` 设置。
+
+</details>
+
+<details>
 <summary><strong>它会阻止我现有的 skills、插件或 MCP 吗？</strong></summary>
 
 不会。目标恰恰相反：让第三方模型更容易发现并使用这些现有能力。
@@ -286,9 +311,9 @@ claude plugin install hello2cc@hello2cc-local
 </details>
 
 <details>
-<summary><strong>什么时候建议使用 <code>sanitize-only</code>？</strong></summary>
+<summary><strong>现在还能把 hello2cc 切成轻量兼容模式吗？</strong></summary>
 
-当多个插件同时工作、你希望 hello2cc 保持更安静，只保留关键兼容修正时，就适合用它。
+不能。当前方向是把 hello2cc 保持成默认强对齐层，而不是在需要时退回只做少量净化和兼容修正的弱模式。
 
 </details>
 

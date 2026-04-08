@@ -12,7 +12,7 @@ function isInheritModel(value) {
   return normalizeSlug(value) === 'inherit';
 }
 
-export function canonicalAgentType(input) {
+function canonicalAgentType(input) {
   const raw = String(input?.subagent_type || input?.agent_type || input?.name || '').trim();
   if (!raw) return '';
 
@@ -41,7 +41,7 @@ export function canonicalAgentType(input) {
   return raw;
 }
 
-export function hostAgentModelSlot(value) {
+function hostAgentModelSlot(value) {
   const slug = normalizeSlug(value);
   if (!slug) return '';
 
@@ -59,7 +59,7 @@ export function hostAgentModelSlot(value) {
   return '';
 }
 
-export function preferredModelForAgent(input, config) {
+function preferredModelForAgent(input, config) {
   if (!input || config.routingPolicy === 'prompt-only' || input.model) {
     return '';
   }

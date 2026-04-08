@@ -2,48 +2,103 @@ function normalizeText(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function visibleCharCount(text) {
+  return Array.from(String(text || '').replace(/\s+/g, '')).length;
+}
+
+function lines(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => String(line || '').trim())
+    .filter(Boolean);
+}
+
+function lineCount(text) {
+  return lines(text).length;
+}
+
+function clauseCount(text) {
+  return String(text || '')
+    .split(/[.!?;:。！？；：,，、\n]+/u)
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .length;
+}
+
+function wordCount(text) {
+  return normalizeText(text)
+    .split(/\s+/)
+    .filter(Boolean)
+    .length;
+}
+
 function hasStructuredList(text) {
   return /(^|\n)(\d+\. |- |\* )/.test(String(text || ''));
 }
 
-function hasPathOrCommandEvidence(text) {
-  return /`[^`]+`|[A-Za-z]:\\[^ \n]+|(?:^|[\s(])[\w./-]+\.[A-Za-z0-9]+/.test(String(text || ''));
+function structuredListItemCount(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .filter((line) => /^(\d+\. |- |\* )/.test(String(line || '').trim()))
+    .length;
 }
 
-const VAGUE_SUBJECT_PATTERNS = [
-  /^(fix|check|update|change|look|investigate|review|misc|stuff|task|work)\b/i,
-  /^(修复|检查|更新|改一下|看一下|研究一下|处理一下|任务)\b/,
-];
+function hasLabeledSections(text) {
+  return /(^|\n)[\p{L}\p{N}_./# -]{2,24}[：:]\s*\S/gu.test(String(text || ''));
+}
 
-const DELIVERABLE_PATTERNS = [
-  /implement|build|add|fix|refactor|write|create|analy[sz]e|compare|review|summari[sz]e|document|deliverable/i,
-  /实现|新增|修复|重构|编写|分析|对比|审查|总结|说明|交付|输出/,
-];
+function labeledSectionCount(text) {
+  const matches = String(text || '').match(/(^|\n)[\p{L}\p{N}_./# -]{2,24}[：:]\s*\S/gu);
+  return Array.isArray(matches) ? matches.length : 0;
+}
 
-const EVIDENCE_PATTERNS = [
-  /test|verify|validation|check|lint|build|review|regression|acceptance|proof|evidence|cite|paths?/i,
-  /测试|验证|检查|回归|验收|证据|路径|引用|输出/,
-];
+function hasPathOrCommandEvidence(text) {
+  return /```[\s\S]*?```|`[^`]+`|[A-Za-z]:\\[^ \n]+|(?:^|[\s(])[./~]?[\w./-]+\.[A-Za-z0-9]+|(?:^|[\s(])(?:npm|pnpm|yarn|bun|node|python|pytest|vitest|jest|cargo|go|gradle|mvn)\b/iu.test(String(text || ''));
+}
+
+function subjectHasStructuralSpecificity(text) {
+  return /`[^`]+`|[#@][\w.-]+|\b[A-Z][A-Za-z0-9_-]{2,}\b|[A-Za-z]:\\|(?:^|[\s(])[./~]?[\w./-]+\.[A-Za-z0-9]+/u.test(String(text || ''));
+}
 
 export function taskSubjectTooVague(taskSubject) {
   const subject = normalizeText(taskSubject);
-  if (subject.length < 10) return true;
-  return VAGUE_SUBJECT_PATTERNS.some((pattern) => pattern.test(subject));
+  const chars = visibleCharCount(subject);
+  if (chars < 4) return true;
+  if (subjectHasStructuralSpecificity(subject)) return false;
+
+  const spaced = /\s/u.test(subject);
+  if (spaced) {
+    return wordCount(subject) <= 2 && chars < 18;
+  }
+
+  return chars < 6;
 }
 
 export function taskDescriptionTooThin(taskDescription) {
   const description = normalizeText(taskDescription);
-  return description.length < 32;
+  return visibleCharCount(description) < 28;
 }
 
 export function taskDescriptionHasDeliverable(taskDescription) {
   const text = String(taskDescription || '');
-  return hasStructuredList(text) || hasPathOrCommandEvidence(text) || DELIVERABLE_PATTERNS.some((pattern) => pattern.test(normalizeText(text)));
+  return (
+    hasPathOrCommandEvidence(text) ||
+    hasStructuredList(text) ||
+    hasLabeledSections(text) ||
+    lineCount(text) >= 2 ||
+    clauseCount(text) >= 2
+  );
 }
 
 export function taskDescriptionHasEvidence(taskDescription) {
   const text = String(taskDescription || '');
-  return hasPathOrCommandEvidence(text) || EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalizeText(text)));
+  return (
+    hasPathOrCommandEvidence(text) ||
+    structuredListItemCount(text) >= 2 ||
+    labeledSectionCount(text) >= 2 ||
+    lineCount(text) >= 3 ||
+    clauseCount(text) >= 3
+  );
 }
 
 export function validateTaskDefinition({ task_subject: taskSubject, task_description: taskDescription }) {

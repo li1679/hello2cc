@@ -9,14 +9,22 @@ export function normalizeTag(tag) {
     throw new Error('Missing release tag');
   }
 
-  return normalized.startsWith('v') ? normalized : `v${normalized}`;
+  return normalized;
 }
 
-export function versionFromTag(tag) {
-  return normalizeTag(tag).replace(/^v/, '');
+function versionFromTag(tag) {
+  const normalized = normalizeTag(tag).replace(/^v/, '');
+  const semverPrefix = normalized.match(/^\d+\.\d+\.\d+/)?.[0];
+  return semverPrefix || normalized;
 }
 
-export function parseChangelogSections(markdown) {
+export function tagLookupVariants(tag) {
+  const normalized = normalizeTag(tag);
+  const bare = normalized.replace(/^v/, '');
+  return [...new Set([normalized, `v${bare}`, bare])].filter(Boolean);
+}
+
+function parseChangelogSections(markdown) {
   const text = String(markdown || '');
   const matches = [...text.matchAll(CHANGELOG_SECTION_PATTERN)];
 

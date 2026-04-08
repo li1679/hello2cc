@@ -16,26 +16,8 @@ export function configuredMirrorSessionModel() {
   return pluginOption('mirror_session_model') !== 'false';
 }
 
-function normalizeCompatibilityMode(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-
-  if ([
-    'sanitize-only',
-    'sanitize_only',
-    'sanitizeonly',
-  ].includes(normalized)) {
-    return 'sanitize-only';
-  }
-
-  return 'full';
-}
-
-export function configuredCompatibilityMode() {
-  return normalizeCompatibilityMode(pluginOption('compatibility_mode'));
-}
-
 export function shouldEmitAdditionalContext() {
-  return configuredCompatibilityMode() !== 'sanitize-only';
+  return true;
 }
 
 function mirroredSessionModel(sessionContext) {
@@ -71,7 +53,6 @@ export function configuredModels(sessionContext = {}) {
 
   return {
     routingPolicy: configuredPolicy(),
-    compatibilityMode: configuredCompatibilityMode(),
     mirrorSessionModel: configuredMirrorSessionModel(),
     sessionModel,
     defaultAgentModel,

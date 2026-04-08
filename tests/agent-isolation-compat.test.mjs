@@ -74,7 +74,7 @@ test('pre-agent-model preserves explicit worktree isolation after route intent m
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
 });
 
-test('sanitize-only compatibility mode suppresses overlays but keeps pretool sanitization', () => {
+test('stale compatibility_mode settings no longer suppress overlays or subagent context', () => {
   const env = isolatedEnv({
     CLAUDE_PLUGIN_OPTION_COMPATIBILITY_MODE: 'sanitize-only',
   });
@@ -83,13 +83,13 @@ test('sanitize-only compatibility mode suppresses overlays but keeps pretool san
     session_id: 'sanitize-only-mode',
     model: 'opus',
   }, env);
-  assert.deepEqual(sessionOutput, { suppressOutput: true });
+  assert.ok(sessionOutput.hookSpecificOutput.additionalContext.includes('# hello2cc'));
 
   const routeOutput = run('route', {
     session_id: 'sanitize-only-mode',
-    prompt: 'Implement this focused fix and validate it.',
+    prompt: 'Compare TeamCreate with plain Agent workers and present it as a table.',
   }, env);
-  assert.deepEqual(routeOutput, { suppressOutput: true });
+  assert.ok(routeOutput.hookSpecificOutput.additionalContext.includes('# hello2cc routing'));
 
   const pretoolOutput = run('pre-agent-model', {
     session_id: 'sanitize-only-mode',
@@ -112,5 +112,5 @@ test('sanitize-only compatibility mode suppresses overlays but keeps pretool san
   });
 
   assert.equal(subagentOutput.status, 0, subagentOutput.stderr);
-  assert.deepEqual(JSON.parse(subagentOutput.stdout), { suppressOutput: true });
+  assert.ok(JSON.parse(subagentOutput.stdout).hookSpecificOutput.additionalContext.includes('# hello2cc Explore mode'));
 });

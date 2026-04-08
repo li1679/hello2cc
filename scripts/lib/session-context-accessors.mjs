@@ -7,7 +7,8 @@ export function detectedTools(sessionContext = {}) {
 }
 
 export function detectedAgents(sessionContext = {}) {
-  return nonEmptyArray(sessionContext?.agentTypes);
+  const surfaced = nonEmptyArray(sessionContext?.surfacedAgentTypes);
+  return surfaced.length ? surfaced : nonEmptyArray(sessionContext?.agentTypes);
 }
 
 export function surfacedSkills(sessionContext = {}) {
@@ -40,4 +41,8 @@ export function loadedDeferredToolNames(sessionContext = {}) {
 
 export function mcpResources(sessionContext = {}) {
   return nonEmptyArray(sessionContext?.mcpResources);
+}
+
+export function mcpInstructionEntries(sessionContext = {}) {
+  return nonEmptyArray(sessionContext?.mcpInstructionEntries);
 }

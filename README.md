@@ -4,14 +4,27 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 [![Publish](https://img.shields.io/github/actions/workflow/status/hellowind777/hello2cc/publish.yml?label=publish)](https://github.com/hellowind777/hello2cc/actions/workflows/publish.yml)
 
-Make third-party models behave more naturally inside Claude Code.
+Make third-party models work inside Claude Code as close to Opus as the plugin layer can drive them.
 
 `hello2cc` does **not** replace your model gateway, provider mapping, or account permissions.  
 Its job is simpler:
 
-> If you already connected GPT, Kimi, DeepSeek, Gemini, Qwen, or other third-party models to Claude Code, `hello2cc` helps them notice and use the capabilities that are already available in the current session.
+> If you already connected GPT, Kimi, DeepSeek, Gemini, Qwen, or other third-party models to Claude Code, `hello2cc` keeps pushing them toward Opus-compatible Claude Code behavior: native capability priorities, tool and agent choice, team/task workflow use, failure recovery, and output style.
 
 **Language:** English | [简体中文](./README_CN.md)
+
+---
+
+## 🆕 What changed in 0.4.8
+
+Compared with `0.4.7`, this release keeps the current runtime behavior baseline stable:
+
+| 0.4.8 note | What you should notice |
+|---|---|
+| Runtime routing baseline stays on `0.4.7` behavior | Team retry, task tracking, and current-info behavior continue without a new migration path |
+| No extra config changes are required | Existing Claude Code, CCSwitch, and plugin settings can continue as-is |
+| The current user-facing fixes remain the active baseline | Native-style team retry fallback and recent WebSearch shaping stay in effect |
+| README is refreshed to the `0.4.8` baseline | Upgrade guidance now reflects the current release without changing normal usage |
 
 ---
 
@@ -22,8 +35,9 @@ Its job is simpler:
 | A matching skill or workflow already exists, but the model keeps rewriting the process | Encourages the model to continue with the surfaced or already-loaded workflow |
 | The session already exposes MCP resources or tools, but the model still takes a detour | Nudges the model toward the most direct path first |
 | Plain parallel workers get confused with team or teammate semantics | Reduces avoidable agent routing mistakes |
-| The model can answer, but does not pick the right Claude Code capability | Makes tool, agent, workflow, and MCP usage feel more natural |
-| Several plugins are installed and the model receives mixed guidance | Offers a quieter compatibility mode for coexistence |
+| The model can answer, but does not pick the right Claude Code capability | Pushes tool, agent, workflow, and MCP choice back toward native Claude Code priorities |
+| The model depends too much on wording or keyword hints | Switches to language-agnostic semantic matching inside host-exposed candidate boundaries |
+| The output style drifts away from native Opus | Forces a tighter Claude Code-native result style |
 | The model drifts into verbose meta narration | Keeps responses closer to concise native Claude Code style |
 
 ---
@@ -52,8 +66,8 @@ Its job is simpler:
 |---|---|
 | Install flow | 3 steps |
 | Extra command required after install | 0 |
-| Common config profiles | 3 |
-| Main goal | 1 — help third-party models use Claude Code more naturally |
+| Common config profiles | 2 |
+| Main goal | 1 — make third-party models behave more like native Claude Code / Opus sessions |
 
 ---
 
@@ -81,7 +95,7 @@ Stronger preference for capabilities that are already available in the session.
 
 ### Agents & teams
 
-Keeps one-shot parallel work on ordinary agent paths, while sustained collaboration is more likely to use a team flow.
+Keeps one-shot parallel work on ordinary agent paths, while sustained collaboration is more likely to use a real team + task-board flow.
 
 </td>
 <td width="50%">
@@ -108,7 +122,7 @@ cd hello2cc
 ### 2) Add the local marketplace
 
 ```bash
-claude plugin marketplace add "<repo-path>"
+claude plugins marketplace add "<repo-path>"
 ```
 
 Replace `<repo-path>` with your local `hello2cc` repository path.
@@ -116,24 +130,27 @@ Replace `<repo-path>` with your local `hello2cc` repository path.
 ### 3) Install the plugin
 
 ```bash
-claude plugin install hello2cc@hello2cc-local
+claude plugins install hello2cc@hello2cc-local
 ```
 
-Then reopen Claude Code or run `/reload`.
+Then reopen Claude Code or run `/reload-plugins`.
 
 ### Expected result
 
 - No extra manual entry point is required
+- Installing the plugin does not write `agent=hello2cc:native` into Claude Code settings
+- Plugin enablement stays under Claude Code's own plugin state, not a plugin-shipped `settings.json`
 - Third-party models are more likely to use session-visible capabilities directly
 - Ordinary parallel agents are less likely to be misrouted
+- Team/subagent sessions are less likely to suffer from oversized injected context
 
 ---
 
 ## 🔧 Recommended configuration
 
-### Option A — Use it with the session as-is
+### Option A — Keep the default strong alignment
 
-Good when your model mapping is already handled by **CCSwitch** and you just want smoother behavior.
+Good when your model mapping is already handled by **CCSwitch** and you want hello2cc to stay on its default strong alignment path.
 
 ```json
 {
@@ -155,15 +172,12 @@ Good when you want most agents to use the same Claude slot.
 If your real target model is mapped through **CCSwitch**, keep the actual mapping there.  
 In `hello2cc`, prefer stable Claude slot values such as `inherit`, `opus`, `sonnet`, or `haiku`.
 
-### Option C — Quiet coexistence with other plugins
+### What 0.4.8 especially improves
 
-Good when multiple plugins add extra guidance and the session starts feeling noisy.
-
-```json
-{
-  "compatibility_mode": "sanitize-only"
-}
-```
+- Keeps the `0.4.7` runtime behavior baseline intact
+- Requires no new migration for existing Claude Code users
+- Continues the native-style team retry fallback path
+- Continues the recent current-info / WebSearch behavior improvements
 
 ---
 
@@ -190,13 +204,13 @@ flowchart LR
 If you changed the local repository or want a clean reinstall:
 
 ```bash
-claude plugin uninstall --scope user hello2cc@hello2cc-local
-claude plugin marketplace remove hello2cc-local
-claude plugin marketplace add "<repo-path>"
-claude plugin install hello2cc@hello2cc-local
+claude plugins uninstall --scope user hello2cc@hello2cc-local
+claude plugins marketplace remove hello2cc-local
+claude plugins marketplace add "<repo-path>"
+claude plugins install hello2cc@hello2cc-local
 ```
 
-Then reopen Claude Code or run `/reload`.
+Then reopen Claude Code or run `/reload-plugins`.
 
 ---
 
@@ -206,9 +220,14 @@ Then reopen Claude Code or run `/reload`.
 
 Try these in order:
 
-1. Reopen Claude Code or run `/reload`
+1. Reopen Claude Code or run `/reload-plugins`
 2. Confirm the plugin is installed and enabled
 3. If you upgraded from a local clone, reinstall it cleanly
+
+### `hello2cc:native` still shows after disable or `/reload`
+
+That banner can persist in the current or resumed session because Claude Code keeps session agent state separately from plugin enablement.
+Current `hello2cc` no longer ships a plugin-side `settings.json` to force `agent=hello2cc:native`, so a clean reinstall or a fresh session stops new unintended agent injection.
 
 ### The model still ignores a skill, tool, or MCP resource
 
@@ -220,24 +239,23 @@ Check whether:
 
 ### Multiple plugins feel noisy together
 
-Use:
-
-```json
-{
-  "compatibility_mode": "sanitize-only"
-}
-```
-
-If you do not see it in the plugin config UI:
-
-1. Check the field named `Compatibility Mode`
-2. Upgrade or reinstall to the latest local version
-3. On older builds, continue through later paged fields because this option used to appear near the end of the form
+Current versions no longer provide `sanitize-only` or another lightweight fallback mode.  
+If several plugins are injecting guidance, keep one dominant behavior-alignment layer and disable or retune the conflicting plugins instead of weakening hello2cc into a thin shim.
 
 ### You still hit `summary is required when message is a string`
 
 Update to the latest version, reload the session, and reinstall if needed.  
 Recent versions add a compatibility layer for plain-text `SendMessage`.
+
+### Team retries show a hello2cc red deny after a missing or deleted team
+
+Update to `0.4.8`, then reload the plugin cleanly.  
+Current versions remove the plugin-side pre-deny for explicit teammate retries, so missing-team handling falls back to Claude Code's native team error path instead.
+
+### Current-info or compare tasks keep missing web results
+
+Update to `0.4.6` or later, then reload the plugin cleanly.  
+Recent versions tighten short-query shaping and treat `Did 0 searches` as an empty search attempt instead of a successful result.
 
 ---
 
@@ -265,6 +283,13 @@ Usually no. After installation, it should work without an extra manual entry poi
 </details>
 
 <details>
+<summary><strong>Will installation force-select <code>hello2cc:native</code> for the current thread?</strong></summary>
+
+No. The plugin ships the native agent as an available option, but it no longer injects a default `agent` setting into Claude Code.
+
+</details>
+
+<details>
 <summary><strong>Will it block my existing skills, plugins, or MCP servers?</strong></summary>
 
 No. The goal is the opposite: make those existing capabilities easier for third-party models to discover and use.
@@ -286,9 +311,9 @@ Only if you want a stable default Claude slot for most agents. If your mapping i
 </details>
 
 <details>
-<summary><strong>When should I use <code>sanitize-only</code>?</strong></summary>
+<summary><strong>Can I still switch hello2cc into a lightweight compatibility-only mode?</strong></summary>
 
-Use it when multiple plugins are active and you want hello2cc to stay quieter while keeping the most important compatibility fixes.
+No. The current direction keeps hello2cc as a default strong alignment layer instead of falling back to a thin sanitize-only shim.
 
 </details>
 
