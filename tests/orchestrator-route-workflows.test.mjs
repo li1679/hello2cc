@@ -7,7 +7,7 @@ import {
   writeTranscript,
 } from './helpers/orchestrator-test-helpers.mjs';
 
-test('route surfaces already discovered skills as host state instead of imperative workflow text', () => {
+test('route defers open workflow routing to surfaced host skills while keeping host state visible', () => {
   const env = isolatedEnv();
   const sessionId = 'route-surfaced-skills';
   const transcriptPath = writeTranscript(env.HOME, sessionId, {
@@ -37,8 +37,15 @@ test('route surfaces already discovered skills as host state instead of imperati
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
   assert.deepEqual(state.host.surfaced_skills, ['brainstorm', 'release']);
+  assert.equal(state.workflow_owner.owner, 'host_skill_workflow');
+  assert.equal(state.workflow_owner.mode, 'host_skill_workflow');
+  assert.equal(state.workflow_owner.reason, 'visible_host_skill_surface_without_native_continuity');
+  assert.deepEqual(state.workflow_owner.host_skill_workflows, ['brainstorm', 'release']);
   assert.equal(state.host.loaded_commands, undefined);
   assert.equal(state.host.workflows, undefined);
+  assert.equal(state.response_contract, undefined);
+  assert.equal(state.execution_playbook, undefined);
+  assert.ok(output.hookSpecificOutput.additionalContext.includes('更高优先级 workflow owner'));
 });
 
 test('route surfaces loaded workflows deferred tools and MCP resources together', () => {

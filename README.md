@@ -15,16 +15,16 @@ Its job is simpler:
 
 ---
 
-## 🆕 What changed in 0.4.9
+## 🆕 What changed in 0.5.0
 
-Compared with `0.4.8`, this release keeps the current runtime behavior baseline stable:
+Compared with `0.4.9`, this release changes how `hello2cc` coexists with surfaced host skills and workflows:
 
-| 0.4.9 note | What you should notice |
+| 0.5.0 note | What you should notice |
 |---|---|
-| Runtime routing baseline stays on `0.4.8` behavior | Team retry, task tracking, and current-info behavior continue without a new migration path |
-| No extra config changes are required | Existing Claude Code, CCSwitch, and plugin settings can continue as-is |
-| The current user-facing fixes remain the active baseline | Native-style team retry fallback and recent WebSearch shaping stay in effect |
-| README is refreshed to the `0.4.9` baseline | Upgrade guidance now reflects the current release without changing normal usage |
+| Visible host skills/workflows can own the main flow | Plugins such as `superpowers` are less likely to be overridden by a parallel hello2cc playbook |
+| Native output style still stays on | Even when a host workflow leads, replies remain closer to Claude Code / Opus-style presentation |
+| Tool semantics and protocol adaptation remain active | Third-party models still benefit from native tool-use hints, parameter cleanup, and failure debounce |
+| Session-start injected bootstrap skill docs are surfaced | `using-superpowers`-style bootstrap content can be recognized as a real host skill surface |
 
 ---
 
@@ -172,12 +172,12 @@ Good when you want most agents to use the same Claude slot.
 If your real target model is mapped through **CCSwitch**, keep the actual mapping there.  
 In `hello2cc`, prefer stable Claude slot values such as `inherit`, `opus`, `sonnet`, or `haiku`.
 
-### What 0.4.9 especially improves
+### What 0.5.0 especially improves
 
-- Keeps the `0.4.8` runtime behavior baseline intact
-- Requires no new migration for existing Claude Code users
-- Continues the native-style team retry fallback path
-- Continues the recent current-info / WebSearch behavior improvements
+- Keeps hello2cc's native output shell active without forcing a private workflow
+- Lets surfaced host skills/workflows lead the main flow when they are the better owner
+- Continues native-style tool semantics, protocol cleanup, and repeated-failure debounce
+- Improves coexistence with session-start bootstrap skills and workflow plugins
 
 ---
 
@@ -236,11 +236,12 @@ Check whether:
 1. That capability is actually exposed in the current session
 2. A higher-priority project rule or user instruction is restricting it
 3. You are continuing the same workflow instead of starting a different one
+4. If a plugin injects a bootstrap skill at session start, update to `0.5.0` or later so hello2cc can surface that skill boundary instead of competing with it
 
 ### Multiple plugins feel noisy together
 
-Current versions no longer provide `sanitize-only` or another lightweight fallback mode.  
-If several plugins are injecting guidance, keep one dominant behavior-alignment layer and disable or retune the conflicting plugins instead of weakening hello2cc into a thin shim.
+From `0.5.0`, hello2cc keeps its output-style shell and tool semantics active, but it no longer needs to own every main-thread workflow.  
+If another plugin surfaces a real skill/workflow owner, hello2cc now yields the main flow more cleanly instead of fighting it with a parallel execution playbook.
 
 ### You still hit `summary is required when message is a string`
 
@@ -249,7 +250,7 @@ Recent versions add a compatibility layer for plain-text `SendMessage`.
 
 ### Team retries show a hello2cc red deny after a missing or deleted team
 
-Update to `0.4.9`, then reload the plugin cleanly.  
+Update to `0.5.0`, then reload the plugin cleanly.  
 Current versions remove the plugin-side pre-deny for explicit teammate retries, so missing-team handling falls back to Claude Code's native team error path instead.
 
 ### Current-info or compare tasks keep missing web results

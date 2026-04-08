@@ -17,6 +17,7 @@ test('session-start exposes hello2cc as host-state and adapter only', () => {
   const state = parseAdditionalContextJson(context);
 
   assert.equal(state.protocol_adapters.semantic_routing, 'host_guarded_model_decides');
+  assert.equal(state.protocol_adapters.workflow_owner_arbitration, 'style_and_tool_semantics_always_on_defer_main_workflow_to_visible_host_skill_owner');
   assert.equal(state.protocol_adapters.explicit_tool_input_wins, true);
   assert.equal(state.protocol_adapters.agent_model, 'fill_safe_claude_slot_if_missing');
   assert.equal(state.protocol_adapters.send_message_summary, 'fill_if_missing');
@@ -295,4 +296,44 @@ test('session-start surfaces mailbox memories skill listings and MCP instruction
   assert.equal(state.host.attachments.teammate_mailbox.message_count, 1);
   assert.equal(state.host.attachments.teammate_mailbox.messages[0].from, 'backend-owner');
   assert.equal(state.host.attachments.teammate_mailbox.messages[0].summary, 'blocked on task #7');
+});
+
+test('session-start surfaces bootstrap skill documents injected at session start as host skill workflows', () => {
+  const env = isolatedEnv();
+  const sessionId = 'session-bootstrap-skill-doc';
+  const transcriptPath = writeTranscript(env.HOME, sessionId, {
+    model: 'opus',
+    tools: ['Skill', 'DiscoverSkills'],
+  }, [
+    {
+      type: 'assistant',
+      session_id: sessionId,
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: [
+              '---',
+              'name: using-superpowers',
+              'description: Use when starting any conversation - establishes how to find and use skills',
+              '---',
+              '',
+              '# Using Superpowers',
+              '',
+              'Use the `Skill` tool before any response when a skill may apply.',
+            ].join('\n'),
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run('session-start', {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    tools: ['Skill', 'DiscoverSkills'],
+  }, env);
+  const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+
+  assert.deepEqual(state.host.surfaced_skills, ['using-superpowers']);
 });

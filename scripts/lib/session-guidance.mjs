@@ -2,10 +2,24 @@ import { FORCED_OUTPUT_STYLE_NAME } from './config.mjs';
 import { buildCapabilityPolicySnapshot, buildSessionCapabilityPolicyLines } from './capability-policy-registry.mjs';
 import { buildSessionStartHostState } from './host-state-context.mjs';
 
+const PERSISTENT_SESSION_POLICY_IDS = [
+  'specificity-ladder',
+  'claude-code-guide',
+  'skills-workflows',
+  'mcp-resources',
+  'tool-discovery',
+  'agent-routing',
+  'websearch',
+  'ask-user-question',
+  'enter-worktree',
+  'deferred-tool-follow-through',
+];
+
 export function buildSessionStartContext(sessionContext = {}) {
   const state = buildSessionStartHostState(sessionContext);
   const policyState = buildCapabilityPolicySnapshot(sessionContext, {}, {
     scope: 'session',
+    includeIds: PERSISTENT_SESSION_POLICY_IDS,
   });
 
   return [
@@ -22,8 +36,11 @@ export function buildSessionStartContext(sessionContext = {}) {
     '- 对 `EnterPlanMode` 采用保守边界：只有真实架构歧义、需求需要先澄清、高影响重构，或用户明确要求先出方案时才考虑进入 session 级 plan mode。',
     '- `Plan` / `Explore` agent 是只读 helper；它们用于搜集信息或产出方案，不等于进入 session 级 `EnterPlanMode`，也不会自动要求走 plan-mode approval flow。',
     '- 路径清晰的实现、沿现有模式落地的功能、边界明确的多文件修改、以及 clear bug fix 默认直接执行；只在有真实阻塞时用 `AskUserQuestion` 提具体问题，不要先开 plan mode。',
+    '- hello2cc 常驻层始终保留输出风格、原生工具语义、协议适配与 fail-closed 收口；若宿主已 surfaced 更高优先级 skill/workflow owner，主流程编排让位给宿主。',
     '',
-    ...buildSessionCapabilityPolicyLines(sessionContext),
+    ...buildSessionCapabilityPolicyLines(sessionContext, {
+      includeIds: PERSISTENT_SESSION_POLICY_IDS,
+    }),
     '',
     '## 输出风格',
     `- 输出风格固定为 \`${FORCED_OUTPUT_STYLE_NAME}\`。`,

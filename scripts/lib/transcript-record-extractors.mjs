@@ -7,6 +7,7 @@ import {
 } from './transcript-context-utils.mjs';
 import {
   extractAgentListingDelta,
+  extractBootstrapSkillEntriesFromText,
   extractCommandEntries,
   extractDeferredToolDelta,
   extractSkillEntriesFromText,
@@ -31,6 +32,7 @@ export {
   extractAgentListingDelta,
   extractAttachmentSignals,
   extractAttachments,
+  extractBootstrapSkillEntriesFromText,
   extractCommandEntries,
   extractDeferredToolDelta,
   extractMcpInstructionDelta,

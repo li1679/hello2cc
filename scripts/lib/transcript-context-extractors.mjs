@@ -11,6 +11,7 @@ import {
   extractAttachments,
   extractCommandEntries,
   extractDeferredToolDelta,
+  extractBootstrapSkillEntriesFromText,
   extractMcpInstructionDelta,
   extractMcpResources,
   extractSkillEntriesFromText,
@@ -34,6 +35,9 @@ export function interactionSnapshotFromRecord(record) {
   const textBlocks = collectStrings(record);
   const attachments = extractAttachments(record);
   const skillListingAttachment = extractSkillListingAttachment(record);
+  const bootstrapSkillEntries = String(record?.type || '').trim().toLowerCase() === 'user'
+    ? []
+    : textBlocks.flatMap((text) => extractBootstrapSkillEntriesFromText(text));
   const surfacedSkillEntries = uniqBy([
     ...attachments
       .filter((attachment) => attachment?.type === 'skill_discovery')
@@ -42,8 +46,9 @@ export function interactionSnapshotFromRecord(record) {
           name: normalizeName(skill?.name),
           description: normalizeDescription(skill?.description),
         }))
-        : []),
+      : []),
     ...skillListingAttachment.skills,
+    ...bootstrapSkillEntries,
     ...textBlocks.flatMap((text) => extractSkillEntriesFromText(text).skills),
   ], (entry) => entry.name.toLowerCase());
   const loadedCommands = uniqBy(

@@ -84,6 +84,7 @@ export function protocolAdapters(sessionContext = {}) {
   return compactState({
     capability_policies: 'host_defined_then_model_selects_within_bounds',
     semantic_routing: 'host_guarded_model_decides',
+    workflow_owner_arbitration: 'style_and_tool_semantics_always_on_defer_main_workflow_to_visible_host_skill_owner',
     explicit_tool_input_wins: true,
     agent_model: config.routingPolicy === 'prompt-only'
       ? 'preserve_input'

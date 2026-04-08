@@ -14,6 +14,15 @@ const COMMAND_ARGS_PATTERN = /<command-args>([\s\S]*?)<\/command-args>/i;
 const SKILL_FORMAT_PATTERN = /<skill-format>(.*?)<\/skill-format>/i;
 const SKILL_DISCOVERY_HEADER = 'Skills relevant to your task:';
 
+function parseFrontmatter(text) {
+  if (!text.startsWith('---\n')) return null;
+
+  const end = text.indexOf('\n---\n', 4);
+  if (end === -1) return null;
+
+  return text.slice(4, end);
+}
+
 export function extractCommandEntries(text) {
   const source = String(text || '');
   const args = normalizeCommandArgs(source.match(COMMAND_ARGS_PATTERN)?.[1]);
@@ -61,6 +70,21 @@ export function extractSkillEntriesFromText(text) {
     names: skills.map((skill) => skill.name),
     skills,
   };
+}
+
+export function extractBootstrapSkillEntriesFromText(text) {
+  const normalized = String(text || '');
+  const frontmatter = parseFrontmatter(normalized);
+  if (!frontmatter) return [];
+
+  const name = normalizeName(frontmatter.match(/^name:\s*(.+)$/mi)?.[1]);
+  const description = normalizeDescription(frontmatter.match(/^description:\s*(.+)$/mi)?.[1]);
+  if (!name || !description) return [];
+
+  return [{
+    name,
+    description,
+  }];
 }
 
 export function extractSkillEntriesFromListing(text) {

@@ -15,16 +15,16 @@
 
 ---
 
-## 🆕 0.4.9 相对 0.4.8 的变化
+## 🆕 0.5.0 相对 0.4.9 的变化
 
-这次版本主要保持 `0.4.8` 的运行时行为基线不变：
+这次版本重点调整了 hello2cc 与宿主 skills / workflows 的共存方式：
 
-| 0.4.9 说明 | 你更容易感受到的结果 |
+| 0.5.0 说明 | 你更容易感受到的结果 |
 |---|---|
-| 运行时路由基线保持 `0.4.8` 行为 | team 重试、task tracking、current-info 等行为不需要新的迁移适配 |
-| 不需要额外改配置 | 现有 Claude Code、CCSwitch 和插件配置可以继续沿用 |
-| 当前用户可感知修复继续生效 | 原生风格的 team 重试回退与最近的 WebSearch 整形会继续保留 |
-| README 已刷新到 `0.4.9` 基线 | 升级说明已更新到当前版本，但不会改变正常使用方式 |
+| 已 surfaced 的宿主 skill / workflow 可以接管主流程 | 像 `superpowers` 这类插件不再那么容易被 hello2cc 并行覆盖 |
+| 原生输出风格仍然持续生效 | 即使主流程让给宿主技能，最终输出也仍尽量贴近 Claude Code / Opus 风格 |
+| 工具语义与协议适配继续常驻 | 第三方模型依然能获得原生工具使用提示、参数净化与失败防抖 |
+| 能识别 SessionStart 注入的 bootstrap skill 文档 | `using-superpowers` 这类启动技能内容可以被识别成真实宿主技能面 |
 
 ---
 
@@ -172,12 +172,12 @@ claude plugins install hello2cc@hello2cc-local
 如果真实模型落点由 **CCSwitch** 控制，就继续把真实映射放在 CCSwitch 里。  
 在 `hello2cc` 里优先使用稳定的 Claude 槽位值，例如 `inherit`、`opus`、`sonnet`、`haiku`。
 
-### 0.4.9 特别加强了什么
+### 0.5.0 特别加强了什么
 
-- 保持 `0.4.8` 的运行时行为基线不变
-- 现有用户升级后不需要新增迁移动作
-- 原生风格的 team 重试回退路径继续保留
-- 最近针对 current-info / WebSearch 的行为收紧继续保留
+- 保留 hello2cc 常驻的原生输出壳层，但不再强制私有 workflow
+- 当宿主已经 surfaced 更合适的 skill / workflow owner 时，更自然地让出主流程
+- 继续保留原生工具语义、协议纠偏与重复失败防抖
+- 提升与 SessionStart 启动技能、工作流插件的共存能力
 
 ---
 
@@ -236,11 +236,12 @@ claude plugins install hello2cc@hello2cc-local
 1. 该能力当前确实已经在会话里暴露出来
 2. 更高优先级的项目规则或用户指令没有限制它
 3. 你是在延续同一个流程，而不是换了一条完全不同的路径
+4. 如果某个插件是在 SessionStart 注入 bootstrap skill，请升级到 `0.5.0` 或更高版本，让 hello2cc 能把它识别成宿主技能面而不是继续争夺主流程
 
 ### 多个插件一起启用时感觉很乱
 
-当前版本不再提供 `sanitize-only` 这类把 hello2cc 降成轻量兼容层的模式。  
-如果多个插件同时注入提示，优先保留一个主导行为对齐层；需要时禁用冲突插件或调整它们的提示，避免让多个插件同时争夺主工作流。
+从 `0.5.0` 开始，hello2cc 会继续保留自己的输出风格壳层和工具语义层，但不再要求始终接管主线程 workflow。  
+如果另一个插件已经 surfaced 真实的 skill / workflow owner，hello2cc 会更自然地让出主流程，而不是继续并行注入一套执行剧本。
 
 ### 仍然遇到 `summary is required when message is a string`
 
@@ -249,7 +250,7 @@ claude plugins install hello2cc@hello2cc-local
 
 ### team 缺失或删除后，重试 teammate 时出现 hello2cc 红字拦截
 
-请升级到 `0.4.9` 后重新加载插件。  
+请升级到 `0.5.0` 后重新加载插件。  
 当前版本已经移除显式 teammate 重试时的插件侧前置 deny，missing-team 会改回走 Claude Code 原生的 team 报错路径。
 
 ### current-info 或对比题经常搜不到结果

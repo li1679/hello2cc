@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.5.0 - 2026-04-08
+
+- 新增 workflow owner 仲裁：当会话里已经 surfaced 更高优先级的 skill / workflow 时，hello2cc 不再强行覆盖主流程
+- 保留常驻的原生输出风格、工具语义、协议适配与失败防抖，让第三方模型继续贴近 Claude Code / Opus 使用方式
+- 补充对 SessionStart 注入 bootstrap skill 文档的识别，使 `using-superpowers` 一类宿主技能面能被正确感知与续用
+
 ## 0.4.9 - 2026-04-08
 
 - 统一稳定版 `v...` tag 与 beta tag 的 release-notes 查找路径，避免因 tag 风格不同导致说明生成失败
