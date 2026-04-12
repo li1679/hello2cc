@@ -41,7 +41,7 @@ jobs:
           fi
 
       - name: Checkout tag
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.ref.outputs.tag }}
 
@@ -131,7 +131,7 @@ jobs:
           echo "RELEASE_NOTES_FILE=$notes_file" >> "$GITHUB_ENV"
 
       - name: Upload release notes artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-notes
           path: ${{ runner.temp }}/release-notes.md
@@ -172,7 +172,7 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout tag
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
@@ -247,12 +247,12 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Download release notes artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-notes
           path: ${{ runner.temp }}
