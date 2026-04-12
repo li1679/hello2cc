@@ -60,6 +60,8 @@ export function subagentTaskIntentState(payload = {}) {
 export function parseTeammateIdentity(payload = {}) {
   const candidates = [
     trimmed(payload?.agent_id),
+    trimmed(payload?.agentId),
+    trimmed(payload?.agent?.id),
     trimmed(process.env.CLAUDE_CODE_AGENT_ID),
   ].filter(Boolean);
 

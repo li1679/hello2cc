@@ -90,6 +90,31 @@ test('subagent-context exposes teammate identity and includes team workflow guid
   assert.match(context, /TeammateIdle.*never replaces `TaskUpdate`|never closes the task/i);
 });
 
+test('subagent-context also accepts camelCase and nested teammate identity payloads', () => {
+  const env = isolatedEnv();
+  const payloads = [
+    {
+      session_id: 'team-worker-camel',
+      agentId: 'frontend-dev@delivery-squad',
+      agent_type: 'general-purpose',
+    },
+    {
+      session_id: 'team-worker-nested',
+      agent: { id: 'frontend-dev@delivery-squad' },
+      agent_type: 'general-purpose',
+    },
+  ];
+
+  for (const payload of payloads) {
+    const output = run('general', payload, env);
+    const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+
+    assert.equal(state.teammate.agent, 'frontend-dev');
+    assert.equal(state.teammate.team, 'delivery-squad');
+    assert.equal(state.coordination.task_board, true);
+  }
+});
+
 test('subagent-context keeps Explore on explicit read-only capability', () => {
   const env = isolatedEnv();
   const output = run('explore', {

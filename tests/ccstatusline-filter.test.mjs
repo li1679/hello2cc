@@ -6,7 +6,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  collectReferencedSubagentIds,
+  collectReferencedSubagentTranscriptPaths,
   enrichStatuslinePayload,
+  inferContextWindowSize,
   readStatuslineTranscriptMetrics,
 } from '../scripts/lib/statusline-bridge-metrics.mjs';
 
@@ -103,6 +106,79 @@ test('statusline bridge backfills zero current usage from referenced subagent tr
   }
 });
 
+test('statusline bridge collects snake_case and nested subagent references', () => {
+  const entries = [
+    {
+      type: 'progress',
+      data: { agentId: 'worker-a' },
+    },
+    {
+      hook_event_name: 'SubagentStart',
+      agent_id: 'worker-b',
+    },
+    {
+      agent: {
+        id: 'worker-c',
+        transcriptPath: 'subagents/agent-worker-c.jsonl',
+      },
+    },
+    {
+      hook_event_name: 'SubagentStop',
+      agent_transcript_path: 'subagents/agent-worker-d.jsonl',
+    },
+  ];
+
+  assert.deepEqual(
+    [...collectReferencedSubagentIds(entries)].sort(),
+    ['worker-a', 'worker-b', 'worker-c'],
+  );
+  assert.deepEqual(
+    [...collectReferencedSubagentTranscriptPaths(entries)].sort(),
+    ['subagents/agent-worker-c.jsonl', 'subagents/agent-worker-d.jsonl'],
+  );
+});
+
+test('statusline bridge reads direct subagent transcript path references', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'hello2cc-ccstatusline-direct-'));
+  try {
+    const transcriptPath = path.join(root, 'session.jsonl');
+    const nestedSubagentDir = path.join(root, 'subagents', 'workflow-run-1');
+    const subagentTranscriptPath = path.join(nestedSubagentDir, 'agent-worker-z.jsonl');
+    mkdirSync(nestedSubagentDir, { recursive: true });
+
+    writeFileSync(transcriptPath, [
+      makeUsageLine({
+        timestamp: '2026-04-12T10:00:00.000Z',
+        input: 15,
+        output: 2,
+      }),
+      JSON.stringify({
+        hook_event_name: 'SubagentStop',
+        agent_transcript_path: path.relative(path.dirname(transcriptPath), subagentTranscriptPath).replace(/\\/gu, '/'),
+      }),
+    ].join('\n'));
+
+    writeFileSync(subagentTranscriptPath, [
+      makeUsageLine({
+        timestamp: '2026-04-12T10:00:08.000Z',
+        input: 600,
+        output: 60,
+        cacheRead: 200,
+        isSidechain: true,
+      }),
+    ].join('\n'));
+
+    const metrics = await readStatuslineTranscriptMetrics(transcriptPath, { includeSubagents: true });
+    assert.equal(metrics.inputTokens, 615);
+    assert.equal(metrics.outputTokens, 62);
+    assert.equal(metrics.cachedTokens, 200);
+    assert.equal(metrics.totalTokens, 877);
+    assert.equal(metrics.backfillUsageEntry?.message?.usage?.input_tokens, 600);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('statusline bridge preserves non-zero current usage from Claude status payload', async () => {
   const payload = enrichStatuslinePayload({
     model: 'opus[1m]',
@@ -142,6 +218,33 @@ test('statusline bridge preserves non-zero current usage from Claude status payl
   });
   assert.equal(payload.context_window.used_percentage, 0.1);
   assert.equal(payload.context_window.remaining_percentage, 99.9);
+});
+
+test('statusline bridge infers context window from env override and common model aliases', () => {
+  const previousOverride = process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS;
+
+  try {
+    process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = '345678';
+    assert.equal(inferContextWindowSize({ model: { name: 'haiku' } }), 345678);
+  } finally {
+    if (previousOverride === undefined) {
+      delete process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS;
+    } else {
+      process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = previousOverride;
+    }
+  }
+
+  assert.equal(inferContextWindowSize({
+    model: {
+      displayName: 'Sonnet 4.6',
+    },
+  }), 1_000_000);
+
+  assert.equal(inferContextWindowSize({
+    model: {
+      display_name: 'Claude Sonnet 4',
+    },
+  }), 1_000_000);
 });
 
 test('ccstatusline bridge proxies enriched payload to downstream command', () => {

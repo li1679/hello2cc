@@ -41,32 +41,71 @@ function parseTimestampMs(value) {
   return Number.isFinite(time) ? time : null;
 }
 
-function collectAgentIds(value, agentIds) {
+const SUBAGENT_ID_KEYS = new Set([
+  'agentId',
+  'agent_id',
+]);
+
+const SUBAGENT_TRANSCRIPT_PATH_KEYS = new Set([
+  'agentTranscriptPath',
+  'agent_transcript_path',
+]);
+
+function addTrimmedString(targetSet, value) {
+  const nextValue = trimmed(value);
+  if (nextValue) {
+    targetSet.add(nextValue);
+  }
+}
+
+function collectSubagentReferences(value, references) {
   if (!value || typeof value !== 'object') return;
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      collectAgentIds(item, agentIds);
+      collectSubagentReferences(item, references);
     }
     return;
   }
 
   for (const [key, nestedValue] of Object.entries(value)) {
-    if (key === 'agentId' && typeof nestedValue === 'string' && trimmed(nestedValue)) {
-      agentIds.add(trimmed(nestedValue));
-      continue;
+    if (SUBAGENT_ID_KEYS.has(key)) {
+      addTrimmedString(references.agentIds, nestedValue);
     }
 
-    collectAgentIds(nestedValue, agentIds);
+    if (SUBAGENT_TRANSCRIPT_PATH_KEYS.has(key)) {
+      addTrimmedString(references.transcriptPaths, nestedValue);
+    }
+
+    if (key === 'agent' && nestedValue && typeof nestedValue === 'object' && !Array.isArray(nestedValue)) {
+      addTrimmedString(references.agentIds, nestedValue.id);
+      addTrimmedString(references.transcriptPaths, nestedValue.transcriptPath);
+      addTrimmedString(references.transcriptPaths, nestedValue.transcript_path);
+    }
+
+    collectSubagentReferences(nestedValue, references);
   }
 }
 
-export function collectReferencedSubagentIds(entries = []) {
-  const agentIds = new Set();
+function collectReferencedSubagentReferences(entries = []) {
+  const references = {
+    agentIds: new Set(),
+    transcriptPaths: new Set(),
+  };
+
   for (const entry of Array.isArray(entries) ? entries : []) {
-    collectAgentIds(entry, agentIds);
+    collectSubagentReferences(entry, references);
   }
-  return agentIds;
+
+  return references;
+}
+
+export function collectReferencedSubagentIds(entries = []) {
+  return collectReferencedSubagentReferences(entries).agentIds;
+}
+
+export function collectReferencedSubagentTranscriptPaths(entries = []) {
+  return collectReferencedSubagentReferences(entries).transcriptPaths;
 }
 
 function getUsage(entry) {
@@ -178,21 +217,51 @@ async function readTranscriptEntries(transcriptPath) {
     .filter(Boolean);
 }
 
-function getSubagentTranscriptPaths(transcriptPath, referencedAgentIds) {
-  if (!trimmed(transcriptPath) || !(referencedAgentIds instanceof Set) || referencedAgentIds.size === 0) {
-    return [];
+function resolveReferencedTranscriptPath(transcriptPath, referencedPath) {
+  const nextPath = trimmed(referencedPath);
+  if (!nextPath) return null;
+
+  if (!trimmed(transcriptPath)) {
+    return path.normalize(nextPath);
   }
 
-  const transcriptDir = path.dirname(transcriptPath);
-  const transcriptStem = path.parse(transcriptPath).name;
-  const candidateDirs = [
-    path.join(transcriptDir, 'subagents'),
-    path.join(transcriptDir, transcriptStem, 'subagents'),
-  ];
+  return path.isAbsolute(nextPath)
+    ? path.normalize(nextPath)
+    : path.resolve(path.dirname(transcriptPath), nextPath);
+}
 
-  return [...referencedAgentIds].flatMap((agentId) => (
-    candidateDirs.map((dirPath) => path.join(dirPath, `agent-${agentId}.jsonl`))
-  ));
+function getSubagentTranscriptPaths(
+  transcriptPath,
+  referencedAgentIds,
+  referencedTranscriptPaths = new Set(),
+) {
+  const candidatePaths = new Set();
+
+  if (trimmed(transcriptPath) && referencedAgentIds instanceof Set && referencedAgentIds.size > 0) {
+    const transcriptDir = path.dirname(transcriptPath);
+    const transcriptStem = path.parse(transcriptPath).name;
+    const candidateDirs = [
+      path.join(transcriptDir, 'subagents'),
+      path.join(transcriptDir, transcriptStem, 'subagents'),
+    ];
+
+    for (const agentId of referencedAgentIds) {
+      for (const dirPath of candidateDirs) {
+        candidatePaths.add(path.join(dirPath, `agent-${agentId}.jsonl`));
+      }
+    }
+  }
+
+  if (referencedTranscriptPaths instanceof Set) {
+    for (const referencedPath of referencedTranscriptPaths) {
+      const resolvedPath = resolveReferencedTranscriptPath(transcriptPath, referencedPath);
+      if (resolvedPath) {
+        candidatePaths.add(resolvedPath);
+      }
+    }
+  }
+
+  return [...candidatePaths];
 }
 
 function pickBackfillUsageEntry(metrics = {}, { preferLatestAny = false } = {}) {
@@ -237,15 +306,67 @@ function getContextLengthFromUsage(usage) {
     + numericOrZero(usage.cache_read_input_tokens);
 }
 
+function getContextWindowOverrideFromEnv() {
+  const overrideValue = trimmed(process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS).replace(/[_\s,]/gu, '');
+  return positiveNumberOrNull(overrideValue);
+}
+
+function collectModelNames(statusPayload = {}) {
+  const modelNames = new Set();
+
+  const pushModelName = (value) => {
+    addTrimmedString(modelNames, value);
+  };
+
+  if (typeof statusPayload?.model === 'string') {
+    pushModelName(statusPayload.model);
+  } else if (statusPayload?.model && typeof statusPayload.model === 'object') {
+    pushModelName(statusPayload.model.id);
+    pushModelName(statusPayload.model.display_name);
+    pushModelName(statusPayload.model.displayName);
+    pushModelName(statusPayload.model.name);
+  }
+
+  pushModelName(statusPayload?.model_id);
+  pushModelName(statusPayload?.modelId);
+  pushModelName(statusPayload?.model_name);
+  pushModelName(statusPayload?.modelName);
+
+  return [...modelNames];
+}
+
+function canonicalizeModelName(value) {
+  return trimmed(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
+}
+
 export function inferContextWindowSize(statusPayload = {}) {
+  const envOverride = getContextWindowOverrideFromEnv();
+  if (envOverride) return envOverride;
+
   const explicitWindow = positiveNumberOrNull(statusPayload?.context_window?.context_window_size);
   if (explicitWindow) return explicitWindow;
 
-  const modelValue = typeof statusPayload?.model === 'string'
-    ? statusPayload.model
-    : `${trimmed(statusPayload?.model?.id)} ${trimmed(statusPayload?.model?.display_name)}`.trim();
+  const modelWindow = positiveNumberOrNull(statusPayload?.model?.max_input_tokens)
+    ?? positiveNumberOrNull(statusPayload?.model?.maxInputTokens);
+  if (modelWindow) return modelWindow;
 
-  if (/\[1m\]/iu.test(modelValue) || /\b1m\b/iu.test(modelValue)) {
+  const modelNames = collectModelNames(statusPayload);
+  if (modelNames.some((value) => /\[1m\]/iu.test(value) || /\b1m\b/iu.test(value))) {
+    return 1_000_000;
+  }
+
+  const canonicalModelNames = modelNames
+    .map(canonicalizeModelName)
+    .filter(Boolean);
+
+  if (canonicalModelNames.some((value) => (
+    value.includes('opus-4-6')
+    || value.includes('sonnet-4-6')
+    || value.includes('claude-sonnet-4')
+  ))) {
     return 1_000_000;
   }
 
@@ -268,8 +389,12 @@ export async function readStatuslineTranscriptMetrics(
   const collected = [collectMetricsFromEntries(mainEntries)];
 
   if (includeSubagents) {
-    const referencedAgentIds = collectReferencedSubagentIds(mainEntries);
-    const candidatePaths = getSubagentTranscriptPaths(transcriptPath, referencedAgentIds);
+    const subagentReferences = collectReferencedSubagentReferences(mainEntries);
+    const candidatePaths = getSubagentTranscriptPaths(
+      transcriptPath,
+      subagentReferences.agentIds,
+      subagentReferences.transcriptPaths,
+    );
     for (const candidatePath of candidatePaths) {
       try {
         const entries = await readTranscriptEntries(candidatePath);

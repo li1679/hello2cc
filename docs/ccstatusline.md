@@ -44,5 +44,7 @@ HELLO2CC_CCSTATUSLINE_COMMAND="bunx ccstatusline@latest"
 
 - 读取 Claude Code 传给 `StatusLine` 的 JSON。
 - 通过 `transcript_path` 汇总主会话和已引用 subagent transcript 的 usage。
+- 同时识别 `agentId` / `agent_id` / `agent.id`，以及 `agentTranscriptPath` / `agent_transcript_path`。
 - 仅在 `context_window` 关键字段缺失或为 `0` 时回填，避免覆盖 Claude Code 原生可用的非零统计。
+- 当宿主遗漏 `context_window_size` 时，优先遵循 `CLAUDE_CODE_MAX_CONTEXT_TOKENS`，否则按常见 1M 模型命名推断窗口大小。
 - 把回填后的 JSON 交给 `ccstatusline@latest`，不修改 Claude Code 或 `ccstatusline` 源码。
