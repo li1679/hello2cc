@@ -1,3 +1,8 @@
+import {
+  participantNameOrEmpty,
+  uniqueParticipantNames,
+} from './participant-name.mjs';
+
 const MAX_MAILBOX_EVENTS = 12;
 const MAX_MAILBOX_SUMMARY_LINES = 6;
 const MAX_TASK_IDS = 12;
@@ -41,7 +46,7 @@ function stringArrayField(record = {}, keys = [], maxItems = MAX_TASK_IDS) {
 }
 
 function namedTeammate(value) {
-  const normalized = trimmed(value);
+  const normalized = participantNameOrEmpty(value);
   if (!normalized) return '';
 
   return ['team-lead', 'main', 'default'].includes(normalized.toLowerCase())
@@ -83,7 +88,7 @@ function terminationSummary(record = {}) {
     return message;
   }
 
-  const teammateName = stringField(record, 'teammate_name', 'teammateName') || 'Teammate';
+  const teammateName = participantNameOrEmpty(stringField(record, 'teammate_name', 'teammateName')) || 'Teammate';
   const taskIds = uniqueStrings(
     arrayValue(record?.affected_tasks || record?.affectedTasks).map((task) => stringField(task, 'task_id', 'taskId')),
     MAX_TASK_IDS,
@@ -95,7 +100,7 @@ function terminationSummary(record = {}) {
 }
 
 function idleEvent(record = {}) {
-  const teammateName = stringField(record, 'teammate_name', 'teammateName');
+  const teammateName = participantNameOrEmpty(stringField(record, 'teammate_name', 'teammateName'));
   const taskIds = uniqueStrings([
     stringField(record, 'last_task_updated_id', 'lastTaskUpdatedId'),
     ...stringArrayField(record, ['assigned_task_ids', 'assignedTaskIds'], MAX_TASK_IDS),
@@ -110,7 +115,7 @@ function idleEvent(record = {}) {
     task_ids: taskIds,
     assigned_task_ids: stringArrayField(record, ['assigned_task_ids', 'assignedTaskIds'], MAX_TASK_IDS),
     blocked_task_ids: stringArrayField(record, ['blocked_task_ids', 'blockedTaskIds'], MAX_TASK_IDS),
-    last_message_target: stringField(record, 'last_message_target', 'lastMessageTarget'),
+    last_message_target: participantNameOrEmpty(stringField(record, 'last_message_target', 'lastMessageTarget')),
     last_message_kind: stringField(record, 'last_message_kind', 'lastMessageKind'),
     last_message_summary: stringField(record, 'last_message_summary', 'lastMessageSummary'),
     last_task_updated_id: stringField(record, 'last_task_updated_id', 'lastTaskUpdatedId'),
@@ -125,7 +130,7 @@ function taskAssignmentEvent(record = {}) {
   const taskId = stringField(record, 'task_id', 'taskId');
   return {
     type: 'task_assignment',
-    teammate_name: stringField(record, 'owner'),
+    teammate_name: participantNameOrEmpty(stringField(record, 'owner')),
     summary: taskAssignmentSummary(record),
     task_id: taskId,
     task_ids: taskId ? [taskId] : [],
@@ -148,7 +153,7 @@ function terminationEvent(record = {}) {
 
   return {
     type: 'teammate_terminated',
-    teammate_name: stringField(record, 'teammate_name', 'teammateName'),
+    teammate_name: participantNameOrEmpty(stringField(record, 'teammate_name', 'teammateName')),
     summary: terminationSummary(record),
     affected_tasks: affectedTasks,
     affected_task_ids: affectedTasks.map((task) => task.task_id),
@@ -228,7 +233,7 @@ export function buildMailboxSummary(events = []) {
     latest_summary: trimmed(events[0]?.summary),
     event_count_by_type: counts,
     event_types: uniqueStrings(events.map((event) => event?.type), 8),
-    teammate_names: uniqueStrings(events.map((event) => event?.teammate_name), MAX_TEAMMATES),
+    teammate_names: uniqueParticipantNames(events.map((event) => event?.teammate_name), MAX_TEAMMATES),
     task_ids: taskIds,
     reassignment_needed_task_ids: reassignmentNeededTaskIds,
     requires_task_pickup: counts.task_assignment ? true : undefined,

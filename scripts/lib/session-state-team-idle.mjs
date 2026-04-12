@@ -13,6 +13,7 @@ import {
   assignedTaskRecordsForTeammate,
   idleNotificationSummary,
 } from './session-state-team-helpers.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 import { trimmed } from './session-state-basic-helpers.mjs';
 
 /**
@@ -21,7 +22,7 @@ import { trimmed } from './session-state-basic-helpers.mjs';
 export function rememberTeammateIdle(payload = {}) {
   const sessionId = normalizeSessionId(payload?.session_id);
   const teamName = trimmed(payload?.team_name);
-  const teammateName = trimmed(payload?.teammate_name || payload?.agent_name);
+  const teammateName = participantNameOrEmpty(payload?.teammate_name || payload?.agent_name);
   if (!shouldTrackSharedTeam(teamName) || !teammateName) {
     return {};
   }
@@ -46,7 +47,7 @@ export function rememberTeammateIdle(payload = {}) {
       teammateName,
       idleReason: trimmed(payload?.idle_reason || payload?.idleReason) || 'available',
       summary: idleNotificationSummary(workflow, teammateName),
-      lastMessageTarget: trimmed(workflow.lastMessageTarget),
+      lastMessageTarget: participantNameOrEmpty(workflow.lastMessageTarget),
       lastMessageKind: trimmed(workflow.lastMessageKind),
       lastMessageSummary: trimmed(workflow.lastMessageSummary),
       lastTaskUpdatedId,

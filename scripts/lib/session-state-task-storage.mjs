@@ -1,3 +1,5 @@
+import { participantNameOrEmpty } from './participant-name.mjs';
+
 export function normalizeTaskIds(values) {
   return [...new Set(
     (Array.isArray(values) ? values : [])
@@ -16,7 +18,7 @@ export function mergedTaskIds(existing = [], added = []) {
 export function normalizeNames(values, maxItems = 16) {
   return [...new Set(
     (Array.isArray(values) ? values : [])
-      .map((value) => String(value || '').trim())
+      .map((value) => participantNameOrEmpty(value))
       .filter(Boolean),
   )].slice(0, maxItems);
 }
@@ -49,7 +51,7 @@ export function taskSummariesFromList(entries = []) {
     entries.map((task) => [task.id, {
       subject: task.subject,
       status: task.status,
-      owner: task.owner,
+      owner: participantNameOrEmpty(task.owner),
       blocks: task.blocks,
       blockedBy: task.blockedBy,
       recordedAt: new Date().toISOString(),

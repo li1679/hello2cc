@@ -1,3 +1,8 @@
+import {
+  participantNameOrEmpty,
+  uniqueParticipantNames,
+} from './participant-name.mjs';
+
 const MAX_REMEMBERED_TASK_IDS = 12;
 const MAX_REMEMBERED_READ_GUARDS = 20;
 const MAX_REMEMBERED_ZERO_RESULT_QUERIES = 8;
@@ -104,7 +109,7 @@ function normalizedTaskSummaries(value) {
           return [normalizedTaskId, {
             subject: trimmed(record?.subject),
             status: trimmed(record?.status),
-            owner: trimmed(record?.owner),
+            owner: participantNameOrEmpty(record?.owner),
             blocks: uniqueStrings(record?.blocks, MAX_REMEMBERED_TASK_IDS),
             blockedBy: uniqueStrings(record?.blockedBy || record?.blocked_by, MAX_REMEMBERED_TASK_IDS),
             recordedAt,
@@ -140,18 +145,18 @@ export function normalizeWorkflowState(value = {}) {
     lastTaskReadId: trimmed(value?.lastTaskReadId),
     lastTaskUpdatedId: trimmed(value?.lastTaskUpdatedId),
     lastTaskUpdatedStatus: trimmed(value?.lastTaskUpdatedStatus),
-    lastTaskOwner: trimmed(value?.lastTaskOwner),
+    lastTaskOwner: participantNameOrEmpty(value?.lastTaskOwner),
     taskSummaries: normalizedTaskSummaries(value?.taskSummaries),
-    knownTeammates: uniqueStrings(value?.knownTeammates, MAX_REMEMBERED_TEAMMATES),
-    shutdownRequestedTargets: uniqueStrings(value?.shutdownRequestedTargets, MAX_REMEMBERED_TEAMMATES),
+    knownTeammates: uniqueParticipantNames(value?.knownTeammates, MAX_REMEMBERED_TEAMMATES),
+    shutdownRequestedTargets: uniqueParticipantNames(value?.shutdownRequestedTargets, MAX_REMEMBERED_TEAMMATES),
     shutdownBroadcastRequested: booleanValue(value?.shutdownBroadcastRequested),
-    lastMessageTarget: trimmed(value?.lastMessageTarget),
+    lastMessageTarget: participantNameOrEmpty(value?.lastMessageTarget),
     lastMessageKind: trimmed(value?.lastMessageKind),
     lastMessageSummary: trimmed(value?.lastMessageSummary || value?.last_message_summary),
     planModeEntered: booleanValue(value?.planModeEntered),
     planModeExited: booleanValue(value?.planModeExited),
     awaitingPlanApproval: booleanValue(value?.awaitingPlanApproval),
-    lastPlanApprovalTarget: trimmed(value?.lastPlanApprovalTarget),
+    lastPlanApprovalTarget: participantNameOrEmpty(value?.lastPlanApprovalTarget),
     askUserQuestionUsed: booleanValue(value?.askUserQuestionUsed),
     toolSearch: {
       lastQuery: trimmed(toolSearch?.lastQuery),

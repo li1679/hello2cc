@@ -9,53 +9,89 @@ import {
   stripAgentWorktreeIsolation,
   wantsIntentWorktree,
 } from './agent-input-shared.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
+
+function joinReasons(...items) {
+  return items.filter(Boolean).join('; ');
+}
 
 export function normalizeAgentTeamSemantics(input = {}, sessionContext = {}) {
-  const workerName = readTrimmed(input?.name);
+  const rawWorkerName = readTrimmed(input?.name);
+  const workerName = participantNameOrEmpty(rawWorkerName);
   const explicitTeamName = readTrimmed(input?.team_name);
   const activeTeamName = readTrimmed(sessionContext?.teamName);
   const teamSemantics = hasIntentTeamSemantics(sessionContext);
-  const hasTeamSemantics = Boolean(workerName || explicitTeamName);
   const activeTeamIsImplicit = isImplicitAssistantTeamName(activeTeamName);
   const explicitTeamIsImplicit = isImplicitAssistantTeamName(explicitTeamName);
+  let updatedInput = input;
+  let placeholderReason = '';
+
+  if (rawWorkerName && !workerName) {
+    updatedInput = { ...updatedInput };
+    delete updatedInput.name;
+    placeholderReason = `hello2cc stripped placeholder Agent.name=${JSON.stringify(rawWorkerName)}; omitted teammate names must stay empty instead of becoming synthetic teammate ids`;
+  }
+
+  const hasTeamSemantics = Boolean(workerName || explicitTeamName);
 
   if (!hasTeamSemantics) {
-    return { input, changed: false, reason: '', blocked: false };
+    return {
+      input: updatedInput,
+      changed: updatedInput !== input,
+      reason: placeholderReason,
+      blocked: false,
+    };
   }
 
   if (!teamSemantics) {
     return {
-      input: stripAgentTeamFields(input),
+      input: stripAgentTeamFields(updatedInput),
       changed: true,
-      reason: 'hello2cc normalized Agent to plain subagent semantics outside explicit team-oriented workflows',
+      reason: joinReasons(
+        placeholderReason,
+        'hello2cc normalized Agent to plain subagent semantics outside explicit team-oriented workflows',
+      ),
       blocked: false,
     };
   }
 
   if (explicitTeamName && !explicitTeamIsImplicit) {
-    return { input, changed: false, reason: '', blocked: false };
+    return {
+      input: updatedInput,
+      changed: updatedInput !== input,
+      reason: placeholderReason,
+      blocked: false,
+    };
   }
 
-  if (provenActiveTeamContext(sessionContext) && !activeTeamIsImplicit) {
+  if (workerName && provenActiveTeamContext(sessionContext) && !activeTeamIsImplicit) {
     return {
       input: {
-        ...input,
+        ...updatedInput,
         team_name: activeTeamName,
       },
       changed: true,
-      reason: `hello2cc made Agent.team_name explicit from verified active team context (${activeTeamName})`,
+      reason: joinReasons(
+        placeholderReason,
+        `hello2cc made Agent.team_name explicit from verified active team context (${activeTeamName})`,
+      ),
       blocked: false,
     };
   }
 
   return {
-    input: stripAgentTeamFields(input),
+    input: stripAgentTeamFields(updatedInput),
     changed: true,
-    reason: isOmittedTeamPlaceholder(explicitTeamName)
-      ? `hello2cc stripped placeholder Agent.team_name=${JSON.stringify(explicitTeamName)}; plain workers should omit team_name entirely, and real teammates should pass a real team_name or establish the team first`
-      : explicitTeamIsImplicit
-      ? 'hello2cc blocked implicit assistant team semantics until TeamCreate or a real explicit team_name is available'
-      : 'hello2cc stripped implicit teammate fields until host state proves a real active team context; plain workers should omit name/team_name, and real teammates should pass an explicit team_name or establish the team first',
+    reason: joinReasons(
+      placeholderReason,
+      !workerName && rawWorkerName
+        ? 'hello2cc kept omitted Agent.name empty so active-team autofill cannot manufacture a synthetic teammate'
+        : isOmittedTeamPlaceholder(explicitTeamName)
+          ? `hello2cc stripped placeholder Agent.team_name=${JSON.stringify(explicitTeamName)}; plain workers should omit team_name entirely, and real teammates should pass a real team_name or establish the team first`
+          : explicitTeamIsImplicit
+            ? 'hello2cc blocked implicit assistant team semantics until TeamCreate or a real explicit team_name is available'
+            : 'hello2cc stripped implicit teammate fields until host state proves a real active team context; plain workers should omit name/team_name, and real teammates should pass an explicit team_name or establish the team first',
+    ),
     blocked: false,
   };
 }

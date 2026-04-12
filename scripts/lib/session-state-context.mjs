@@ -10,6 +10,7 @@ import {
   mutateSessionEntry,
   normalizeSessionId,
 } from './session-state-store.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 
 function normalizeIntentProfile(profile = {}) {
   const normalized = summarizeIntentForState(profile);
@@ -60,7 +61,7 @@ function rememberableContext(context = {}) {
     loadedDeferredToolNames: Array.isArray(context.loadedDeferredToolNames) ? context.loadedDeferredToolNames : [],
     mcpResources: Array.isArray(context.mcpResources) ? context.mcpResources : [],
     teamName: String(context.teamName || '').trim(),
-    agentName: String(context.agentName || '').trim(),
+    agentName: participantNameOrEmpty(context.agentName),
     teamConfigPath: String(context.teamConfigPath || '').trim(),
     taskListPath: String(context.taskListPath || '').trim(),
     attachedTeamContext: context.attachedTeamContext && typeof context.attachedTeamContext === 'object'

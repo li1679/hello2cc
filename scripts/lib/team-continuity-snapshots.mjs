@@ -1,6 +1,7 @@
 import { buildVisibleMailboxState } from './team-mailbox-state.mjs';
 import { buildTeamActionState } from './team-action-state.mjs';
 import { buildTeamFollowUpState } from './team-follow-up-state.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 import {
   MAX_REMEMBERED_TASK_IDS,
   arrayValue,
@@ -56,7 +57,7 @@ function pendingPlanApprovalNames(sessionContext = {}) {
 function pendingPlanApprovalRecords(sessionContext = {}) {
   return Object.values(sharedTeamState(sessionContext).pendingPlanApprovals)
     .map((record) => ({
-      teammate_name: trimmed(record?.name),
+      teammate_name: participantNameOrEmpty(record?.name),
       request_id: trimmed(record?.requestId),
       plan_file_path: trimmed(record?.planFilePath),
       recorded_at: trimmed(record?.recordedAt),
@@ -68,7 +69,7 @@ function assignedTaskIdsByTeammate(sessionContext = {}) {
   const grouped = {};
 
   for (const record of Object.values(mergedTaskAssignments(sessionContext))) {
-    const owner = trimmed(record?.owner);
+    const owner = participantNameOrEmpty(record?.owner);
     const taskId = trimmed(record?.taskId);
     if (!owner || !taskId) continue;
 
@@ -90,7 +91,7 @@ function blockingTaskIds(sessionContext = {}) {
 }
 
 function blockedTasksForTeammate(sessionContext = {}, name) {
-  const normalizedName = trimmed(name);
+  const normalizedName = participantNameOrEmpty(name);
   if (!normalizedName) return [];
 
   return blockedTaskRecords(sessionContext)
@@ -117,10 +118,10 @@ function idleTeammateNames(sessionContext = {}) {
 function pendingIdleNotificationRecords(sessionContext = {}) {
   return Object.values(sharedTeamState(sessionContext).pendingIdleNotifications)
     .map((record) => ({
-      teammate_name: trimmed(record?.teammateName),
+      teammate_name: participantNameOrEmpty(record?.teammateName),
       idle_reason: trimmed(record?.idleReason),
       summary: trimmed(record?.summary),
-      last_message_target: trimmed(record?.lastMessageTarget),
+      last_message_target: participantNameOrEmpty(record?.lastMessageTarget),
       last_message_kind: trimmed(record?.lastMessageKind),
       last_message_summary: trimmed(record?.lastMessageSummary),
       last_task_updated_id: trimmed(record?.lastTaskUpdatedId),
@@ -134,12 +135,12 @@ function pendingIdleNotificationRecords(sessionContext = {}) {
 }
 
 function pendingTaskAssignmentRecords(sessionContext = {}, name = '') {
-  const normalizedName = trimmed(name);
+  const normalizedName = participantNameOrEmpty(name);
   return Object.values(sharedTeamState(sessionContext).pendingTaskAssignments)
-    .filter((record) => !normalizedName || trimmed(record?.owner) === normalizedName)
+    .filter((record) => !normalizedName || participantNameOrEmpty(record?.owner) === normalizedName)
     .map((record) => ({
       task_id: trimmed(record?.taskId),
-      owner: trimmed(record?.owner),
+      owner: participantNameOrEmpty(record?.owner),
       subject: trimmed(record?.subject),
       description: trimmed(record?.description),
       assigned_by: trimmed(record?.assignedBy),
@@ -151,7 +152,7 @@ function pendingTaskAssignmentRecords(sessionContext = {}, name = '') {
 function pendingTerminationNotificationRecords(sessionContext = {}) {
   return Object.values(sharedTeamState(sessionContext).pendingTerminationNotifications)
     .map((record) => ({
-      teammate_name: trimmed(record?.teammateName),
+      teammate_name: participantNameOrEmpty(record?.teammateName),
       message: trimmed(record?.message),
       affected_tasks: arrayValue(record?.affectedTasks)
         .map((task) => ({
@@ -178,14 +179,15 @@ export function teamContinuitySnapshot(sessionContext = {}) {
   const pendingPlanApprovals = pendingPlanApprovalNames(sessionContext);
   const pendingPlanApprovalRequests = pendingPlanApprovalRecords(sessionContext);
   const allPendingAssignments = pendingTaskAssignmentRecords(sessionContext);
-  const currentAgentAssignments = currentAssignedTasksForTeammate(sessionContext, sessionContext?.agentName);
-  const currentAgentBlockedTasks = blockedTasksForTeammate(sessionContext, sessionContext?.agentName);
-  const currentAgentPendingAssignments = pendingTaskAssignmentRecords(sessionContext, sessionContext?.agentName);
+  const currentAgentName = participantNameOrEmpty(sessionContext?.agentName);
+  const currentAgentAssignments = currentAssignedTasksForTeammate(sessionContext, currentAgentName);
+  const currentAgentBlockedTasks = blockedTasksForTeammate(sessionContext, currentAgentName);
+  const currentAgentPendingAssignments = pendingTaskAssignmentRecords(sessionContext, currentAgentName);
   const assignmentMap = assignedTaskIdsByTeammate(sessionContext);
   const pendingIdleNotifications = pendingIdleNotificationRecords(sessionContext);
   const pendingTerminationNotifications = pendingTerminationNotificationRecords(sessionContext);
   const mailboxState = buildVisibleMailboxState({
-    agentName: trimmed(sessionContext?.agentName),
+    agentName: currentAgentName,
     pendingIdleNotifications,
     pendingTaskAssignments: allPendingAssignments,
     pendingTerminationNotifications,
@@ -197,7 +199,7 @@ export function teamContinuitySnapshot(sessionContext = {}) {
     idleTeammates,
   });
   const teamActionState = buildTeamActionState({
-    agentName: trimmed(sessionContext?.agentName),
+    agentName: currentAgentName,
     pendingPlanApprovals: pendingPlanApprovalRequests,
     shutdownRejections: rejectedShutdownRecords,
     handoffCandidates: followUpState.handoffCandidates,

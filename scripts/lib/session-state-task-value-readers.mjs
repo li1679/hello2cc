@@ -1,5 +1,6 @@
 import { structuredApproveFieldValue } from './send-message-helpers.mjs';
 import { sessionContextFromPayload } from './session-state-context.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 import { realTeamNameOrEmpty } from './team-name.mjs';
 import { taskIdFromInput } from './tool-policy-state.mjs';
 import {
@@ -83,7 +84,7 @@ export function readTaskOwner(payload = {}) {
     response?.task?.owner,
     response?.data?.task?.owner,
   ]
-    .map((value) => String(value || '').trim())
+    .map((value) => participantNameOrEmpty(value))
     .find(Boolean) || '';
 }
 
@@ -111,7 +112,7 @@ export function readTaskListEntries(payload = {}) {
       id: String(task?.id || '').trim(),
       subject: String(task?.subject || '').trim(),
       status: String(task?.status || '').trim(),
-      owner: String(task?.owner || '').trim(),
+      owner: participantNameOrEmpty(task?.owner),
       blocks: normalizeTaskIds(task?.blocks),
       blockedBy: normalizeTaskIds(task?.blockedBy),
     }))
@@ -159,7 +160,7 @@ export function readToolSearchMatchCount(payload = {}) {
 }
 
 export function readAgentWorkerName(payload = {}) {
-  return String(payload?.tool_input?.name || '').trim();
+  return participantNameOrEmpty(payload?.tool_input?.name);
 }
 
 export function readAgentTeamName(payload = {}) {
@@ -167,7 +168,7 @@ export function readAgentTeamName(payload = {}) {
 }
 
 export function readSendMessageTarget(payload = {}) {
-  return String(payload?.tool_input?.to || '').trim();
+  return participantNameOrEmpty(payload?.tool_input?.to);
 }
 
 export function readStructuredMessageType(payload = {}) {
@@ -234,17 +235,17 @@ export function resolvedTeamName(payload = {}, previous = {}, next = {}) {
 
 export function resolvedAgentName(payload = {}, previous = {}, next = {}) {
   const snapshot = payloadTeamSnapshot(payload);
-  return trimmed(snapshot.agentName)
+  return participantNameOrEmpty(snapshot.agentName)
     || readAgentWorkerName(payload)
-    || trimmed(previous?.agentName)
-    || trimmed(next?.agentName);
+    || participantNameOrEmpty(previous?.agentName)
+    || participantNameOrEmpty(next?.agentName);
 }
 
 export function sessionActorName(payload = {}, previous = {}, next = {}) {
   const snapshot = payloadTeamSnapshot(payload);
-  return trimmed(snapshot.agentName)
-    || trimmed(previous?.agentName)
-    || trimmed(next?.agentName);
+  return participantNameOrEmpty(snapshot.agentName)
+    || participantNameOrEmpty(previous?.agentName)
+    || participantNameOrEmpty(next?.agentName);
 }
 
 export function shouldTrackSharedTeam(teamName) {
@@ -252,7 +253,7 @@ export function shouldTrackSharedTeam(teamName) {
 }
 
 export function isReservedSharedOwner(name) {
-  const normalized = trimmed(name).toLowerCase();
+  const normalized = participantNameOrEmpty(name).toLowerCase();
   return !normalized || ['team-lead', 'main', 'default'].includes(normalized);
 }
 

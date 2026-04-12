@@ -1,4 +1,5 @@
 import { activeTeamName } from './capability-policy-helpers.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 import {
   hasKnownTask,
   knownTeammateNames,
@@ -48,17 +49,33 @@ export function normalizeTaskGetInput(input = {}, sessionContext = {}) {
  */
 export function normalizeTaskUpdateInput(input = {}, sessionContext = {}) {
   const taskId = taskIdFromInput(input);
-  const owner = trimmed(input?.owner);
+  const rawOwner = trimmed(input?.owner);
+  const owner = participantNameOrEmpty(rawOwner);
+  const normalizedInput = rawOwner && !owner
+    ? (() => {
+        const next = { ...input };
+        delete next.owner;
+        return next;
+      })()
+    : input;
+  const placeholderReason = rawOwner && !owner
+    ? `hello2cc stripped placeholder TaskUpdate.owner=${JSON.stringify(rawOwner)}; omitted owner values must stay empty instead of being treated as unknown teammates`
+    : '';
   const linkedTasks = taskLinkIds([...(Array.isArray(input?.addBlocks) ? input.addBlocks : []), ...(Array.isArray(input?.addBlockedBy) ? input.addBlockedBy : [])]);
 
   if (!taskId) {
-    return { input, changed: false, reason: '', blocked: false };
+    return {
+      input: normalizedInput,
+      changed: normalizedInput !== input,
+      reason: placeholderReason,
+      blocked: false,
+    };
   }
 
   const activeTeam = activeTeamName(sessionContext);
   if (activeTeam && owner && !isReservedTeamOwner(owner) && !knownTeammateNames(sessionContext).includes(owner)) {
     return {
-      input,
+      input: normalizedInput,
       changed: false,
       blocked: true,
       reason: `hello2cc blocked TaskUpdate owner assignment for "${owner}" because active team "${activeTeam}" does not have that teammate in current continuity yet; create or surface the real teammate first, then assign via TaskUpdate(owner)`,
@@ -67,7 +84,7 @@ export function normalizeTaskUpdateInput(input = {}, sessionContext = {}) {
 
   if (linkedTasks.includes(taskId)) {
     return {
-      input,
+      input: normalizedInput,
       changed: false,
       blocked: true,
       reason: `hello2cc blocked TaskUpdate for task "${taskId}" because a task cannot block itself; use another real taskId in addBlocks/addBlockedBy`,
@@ -77,14 +94,19 @@ export function normalizeTaskUpdateInput(input = {}, sessionContext = {}) {
   const unknownLinkedTasks = linkedTasks.filter((linkedTaskId) => !hasKnownTask(sessionContext, linkedTaskId));
   if (unknownLinkedTasks.length > 0) {
     return {
-      input,
+      input: normalizedInput,
       changed: false,
       blocked: true,
       reason: `hello2cc blocked TaskUpdate for task "${taskId}" because blocker references ${unknownLinkedTasks.map((id) => `"${id}"`).join(', ')} are not known in current task-board continuity; refresh with TaskList/TaskGet before mutating blocker state`,
     };
   }
 
-  return { input, changed: false, reason: '', blocked: false };
+  return {
+    input: normalizedInput,
+    changed: normalizedInput !== input,
+    reason: placeholderReason,
+    blocked: false,
+  };
 }
 
 /**

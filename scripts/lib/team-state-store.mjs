@@ -1,4 +1,8 @@
 import { readPluginDataJson, writePluginDataJson } from './plugin-data.mjs';
+import {
+  participantNameOrEmpty,
+  uniqueParticipantNames,
+} from './participant-name.mjs';
 
 const TEAM_STATE_PATH = 'runtime/team-context.json';
 const MAX_TEAM_ENTRIES = 20;
@@ -23,7 +27,7 @@ function normalizeRejectedTargets(entries = {}) {
   return Object.fromEntries(
     Object.entries(entries)
       .map(([name, record]) => {
-        const normalizedName = trimmed(record?.name || name);
+        const normalizedName = participantNameOrEmpty(record?.name || name);
         const recordedAt = trimmed(record?.recordedAt);
         if (!normalizedName || !recordedAt) {
           return null;
@@ -45,7 +49,7 @@ function normalizePendingPlanApprovals(entries = {}) {
   return Object.fromEntries(
     Object.entries(entries)
       .map(([name, record]) => {
-        const normalizedName = trimmed(record?.name || name);
+        const normalizedName = participantNameOrEmpty(record?.name || name);
         const requestId = trimmed(record?.requestId || record?.request_id);
         const recordedAt = trimmed(record?.recordedAt);
         if (!normalizedName || !requestId || !recordedAt) {
@@ -70,7 +74,7 @@ function normalizeTaskAssignments(entries = {}) {
     Object.entries(entries)
       .map(([taskId, record]) => {
         const normalizedTaskId = trimmed(record?.taskId || taskId);
-        const owner = trimmed(record?.owner);
+        const owner = participantNameOrEmpty(record?.owner);
         const recordedAt = trimmed(record?.recordedAt);
         if (!normalizedTaskId || !owner || !recordedAt) {
           return null;
@@ -97,7 +101,7 @@ function normalizePendingIdleNotifications(entries = {}) {
   return Object.fromEntries(
     Object.entries(entries)
       .map(([name, record]) => {
-        const teammateName = trimmed(record?.teammateName || record?.teammate_name || record?.name || name);
+        const teammateName = participantNameOrEmpty(record?.teammateName || record?.teammate_name || record?.name || name);
         const recordedAt = trimmed(record?.recordedAt);
         if (!teammateName || !recordedAt) {
           return null;
@@ -107,7 +111,7 @@ function normalizePendingIdleNotifications(entries = {}) {
           teammateName,
           idleReason: trimmed(record?.idleReason || record?.idle_reason),
           summary: trimmed(record?.summary),
-          lastMessageTarget: trimmed(record?.lastMessageTarget || record?.last_message_target),
+          lastMessageTarget: participantNameOrEmpty(record?.lastMessageTarget || record?.last_message_target),
           lastMessageKind: trimmed(record?.lastMessageKind || record?.last_message_kind),
           lastMessageSummary: trimmed(record?.lastMessageSummary || record?.last_message_summary),
           lastTaskUpdatedId: trimmed(record?.lastTaskUpdatedId || record?.last_task_updated_id),
@@ -129,7 +133,7 @@ function normalizePendingTaskAssignments(entries = {}) {
     Object.entries(entries)
       .map(([taskId, record]) => {
         const normalizedTaskId = trimmed(record?.taskId || taskId);
-        const owner = trimmed(record?.owner);
+        const owner = participantNameOrEmpty(record?.owner);
         const recordedAt = trimmed(record?.recordedAt);
         if (!normalizedTaskId || !owner || !recordedAt) {
           return null;
@@ -164,7 +168,7 @@ function normalizePendingTerminationNotifications(entries = {}) {
   return Object.fromEntries(
     Object.entries(entries)
       .map(([name, record]) => {
-        const teammateName = trimmed(record?.teammateName || record?.teammate_name || record?.name || name);
+        const teammateName = participantNameOrEmpty(record?.teammateName || record?.teammate_name || record?.name || name);
         const recordedAt = trimmed(record?.recordedAt);
         if (!teammateName || !recordedAt) {
           return null;
@@ -186,9 +190,9 @@ function normalizePendingTerminationNotifications(entries = {}) {
 function normalizeTeamEntry(value = {}) {
   return {
     teamName: trimmed(value?.teamName),
-    knownTeammates: uniqueStrings(value?.knownTeammates),
-    shutdownRequestedTargets: uniqueStrings(value?.shutdownRequestedTargets),
-    shutdownApprovedTargets: uniqueStrings(value?.shutdownApprovedTargets),
+    knownTeammates: uniqueParticipantNames(value?.knownTeammates),
+    shutdownRequestedTargets: uniqueParticipantNames(value?.shutdownRequestedTargets),
+    shutdownApprovedTargets: uniqueParticipantNames(value?.shutdownApprovedTargets),
     shutdownRejectedTargets: normalizeRejectedTargets(value?.shutdownRejectedTargets),
     pendingPlanApprovals: normalizePendingPlanApprovals(value?.pendingPlanApprovals),
     taskAssignments: normalizeTaskAssignments(value?.taskAssignments),

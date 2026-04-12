@@ -1,3 +1,8 @@
+import {
+  participantNameOrEmpty,
+  uniqueParticipantNames,
+} from './participant-name.mjs';
+
 const MAX_ACTION_ITEMS = 10;
 const MAX_SUMMARY_LINES = 6;
 const MAX_TASK_IDS = 12;
@@ -29,7 +34,7 @@ function byPriorityAndTime(left = {}, right = {}) {
 }
 
 function planApprovalAction(record = {}) {
-  const teammateName = trimmed(record?.teammate_name);
+  const teammateName = participantNameOrEmpty(record?.teammate_name);
   return {
     action_type: 'review_plan_approval',
     priority: 100,
@@ -43,7 +48,7 @@ function planApprovalAction(record = {}) {
 }
 
 function shutdownRejectionAction(record = {}) {
-  const teammateName = trimmed(record?.teammate_name);
+  const teammateName = participantNameOrEmpty(record?.teammate_name);
   const reason = trimmed(record?.reason);
   return {
     action_type: 'resolve_shutdown_rejection',
@@ -63,8 +68,8 @@ function reassignmentAction(candidate = {}) {
     action_type: 'reassign_task',
     priority: 90,
     task_id: trimmed(candidate?.task_id),
-    teammate_name: trimmed(candidate?.previous_owner),
-    follow_up_targets: uniqueStrings(candidate?.follow_up_targets, MAX_TEAMMATES),
+    teammate_name: participantNameOrEmpty(candidate?.previous_owner),
+    follow_up_targets: uniqueParticipantNames(candidate?.follow_up_targets, MAX_TEAMMATES),
     recorded_at: trimmed(candidate?.recorded_at),
     next_tool: 'TaskGet/TaskUpdate(owner)',
     summary: trimmed(candidate?.summary),
@@ -76,8 +81,8 @@ function handoffAction(candidate = {}) {
     action_type: 'follow_up_handoff',
     priority: 80,
     task_id: trimmed(candidate?.task_id),
-    teammate_name: trimmed(candidate?.current_owner),
-    follow_up_targets: uniqueStrings(candidate?.follow_up_targets, MAX_TEAMMATES),
+    teammate_name: participantNameOrEmpty(candidate?.current_owner),
+    follow_up_targets: uniqueParticipantNames(candidate?.follow_up_targets, MAX_TEAMMATES),
     recorded_at: trimmed(candidate?.recorded_at),
     next_tool: 'TaskGet/SendMessage',
     summary: trimmed(candidate?.summary),
@@ -89,7 +94,7 @@ function pickUpAssignmentAction(record = {}) {
     action_type: 'pick_up_assignment',
     priority: 95,
     task_id: trimmed(record?.task_id),
-    teammate_name: trimmed(record?.owner),
+    teammate_name: participantNameOrEmpty(record?.owner),
     assigned_by: trimmed(record?.assigned_by),
     recorded_at: trimmed(record?.recorded_at),
     next_tool: 'TaskGet/TaskUpdate(status:"in_progress")',
@@ -104,7 +109,7 @@ function blockedTaskAction(record = {}) {
     action_type: 'resolve_blocker',
     priority: 85,
     task_id: taskId,
-    teammate_name: trimmed(record?.owner),
+    teammate_name: participantNameOrEmpty(record?.owner),
     blocker_task_ids: blockerIds,
     recorded_at: trimmed(record?.recorded_at),
     next_tool: 'TaskGet/TaskUpdate/SendMessage',
@@ -165,7 +170,7 @@ function actionSummary(items = []) {
     top_action_type: trimmed(items[0]?.action_type),
     top_priority: priority || undefined,
     action_types: actionTypes,
-    teammate_names: uniqueStrings(items.map((item) => item?.teammate_name), MAX_TEAMMATES),
+    teammate_names: uniqueParticipantNames(items.map((item) => item?.teammate_name), MAX_TEAMMATES),
     task_ids: uniqueStrings(items.map((item) => item?.task_id), MAX_TASK_IDS),
     requires_immediate_response: priority >= 95 ? true : undefined,
     requires_compact_table: items.length > 1 || actionTypes.length > 1 ? true : undefined,
@@ -187,7 +192,8 @@ export function buildTeamActionState({
   pendingAssignments = [],
   blockedTasks = [],
 } = {}) {
-  const isTeammate = Boolean(trimmed(agentName)) && !['team-lead', 'main', 'default'].includes(trimmed(agentName).toLowerCase());
+  const normalizedAgentName = participantNameOrEmpty(agentName);
+  const isTeammate = Boolean(normalizedAgentName) && !['team-lead', 'main', 'default'].includes(normalizedAgentName.toLowerCase());
   const teamActionItems = isTeammate
     ? buildTeammateActionItems({
         pendingAssignments,

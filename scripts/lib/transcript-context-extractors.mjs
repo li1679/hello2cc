@@ -24,6 +24,7 @@ import {
   uniq,
   uniqBy,
 } from './transcript-record-extractors.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 import { realTeamNameOrEmpty } from './team-name.mjs';
 import { extractWorkflowEntries } from './transcript-workflow-extractors.mjs';
 
@@ -122,7 +123,7 @@ export function teamSnapshotFromRecord(record) {
 
   const attachmentTeamContext = normalizeAttachmentTeamContext(latestAttachmentOfType(record, 'team_context'));
   const teamName = realTeamNameOrEmpty(record.teamName || record.team_name || attachmentTeamContext?.teamName);
-  const agentName = String(record.agentName || record.agent_name || attachmentTeamContext?.agentName || '').trim();
+  const agentName = participantNameOrEmpty(record.agentName || record.agent_name || attachmentTeamContext?.agentName);
 
   return {
     ...(teamName ? { teamName } : {}),

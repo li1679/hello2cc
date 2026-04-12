@@ -1,4 +1,5 @@
 import { knownTeammateNames } from './tool-policy-state.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 
 export function trimmed(value) {
   return String(value || '').trim();
@@ -9,11 +10,11 @@ export function activeTeamName(sessionContext = {}) {
 }
 
 export function activeAgentName(sessionContext = {}) {
-  return trimmed(sessionContext?.agentName);
+  return participantNameOrEmpty(sessionContext?.agentName);
 }
 
 export function messageTarget(input = {}) {
-  return trimmed(input?.to);
+  return participantNameOrEmpty(input?.to);
 }
 
 export function structuredMessageType(input = {}) {

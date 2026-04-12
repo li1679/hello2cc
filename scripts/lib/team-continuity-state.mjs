@@ -7,6 +7,10 @@ import {
   trimmed,
   uniqueStrings,
 } from './tool-policy-state-shared.mjs';
+import {
+  participantNameOrEmpty,
+  uniqueParticipantNames,
+} from './participant-name.mjs';
 
 function normalizeObjectEntries(value, mapper) {
   return value && typeof value === 'object'
@@ -20,7 +24,7 @@ function normalizeObjectEntries(value, mapper) {
 
 function normalizeRejectedTargets(value) {
   return normalizeObjectEntries(value, ([name, record]) => {
-    const normalizedName = trimmed(record?.name || name);
+    const normalizedName = participantNameOrEmpty(record?.name || name);
     const recordedAt = trimmed(record?.recordedAt);
     if (!normalizedName || !recordedAt) {
       return null;
@@ -36,7 +40,7 @@ function normalizeRejectedTargets(value) {
 
 function normalizePlanApprovals(value) {
   return normalizeObjectEntries(value, ([name, record]) => {
-    const normalizedName = trimmed(record?.name || name);
+    const normalizedName = participantNameOrEmpty(record?.name || name);
     const requestId = trimmed(record?.requestId || record?.request_id);
     const recordedAt = trimmed(record?.recordedAt);
     if (!normalizedName || !requestId || !recordedAt) {
@@ -54,7 +58,7 @@ function normalizePlanApprovals(value) {
 
 function normalizeIdleNotifications(value) {
   return normalizeObjectEntries(value, ([name, record]) => {
-    const teammateName = trimmed(record?.teammateName || record?.teammate_name || record?.name || name);
+    const teammateName = participantNameOrEmpty(record?.teammateName || record?.teammate_name || record?.name || name);
     const recordedAt = trimmed(record?.recordedAt);
     if (!teammateName || !recordedAt) {
       return null;
@@ -64,7 +68,7 @@ function normalizeIdleNotifications(value) {
       teammateName,
       idleReason: trimmed(record?.idleReason || record?.idle_reason),
       summary: trimmed(record?.summary),
-      lastMessageTarget: trimmed(record?.lastMessageTarget || record?.last_message_target),
+      lastMessageTarget: participantNameOrEmpty(record?.lastMessageTarget || record?.last_message_target),
       lastMessageKind: trimmed(record?.lastMessageKind || record?.last_message_kind),
       lastMessageSummary: trimmed(record?.lastMessageSummary || record?.last_message_summary),
       lastTaskUpdatedId: trimmed(record?.lastTaskUpdatedId || record?.last_task_updated_id),
@@ -80,7 +84,7 @@ function normalizeIdleNotifications(value) {
 function normalizeTaskAssignments(value, includeDescription) {
   return normalizeObjectEntries(value, ([taskId, record]) => {
     const normalizedTaskId = trimmed(record?.taskId || taskId);
-    const owner = trimmed(record?.owner);
+    const owner = participantNameOrEmpty(record?.owner);
     const recordedAt = trimmed(record?.recordedAt);
     if (!normalizedTaskId || !owner || !recordedAt) {
       return null;
@@ -102,7 +106,7 @@ function normalizeTaskAssignments(value, includeDescription) {
 
 function normalizeTerminationNotifications(value) {
   return normalizeObjectEntries(value, ([name, record]) => {
-    const teammateName = trimmed(record?.teammateName || record?.teammate_name || record?.name || name);
+    const teammateName = participantNameOrEmpty(record?.teammateName || record?.teammate_name || record?.name || name);
     const recordedAt = trimmed(record?.recordedAt);
     if (!teammateName || !recordedAt) {
       return null;
@@ -143,9 +147,9 @@ export function sharedTeamState(sessionContext = {}) {
   }
 
   return {
-    knownTeammates: uniqueStrings(value?.knownTeammates, MAX_REMEMBERED_TEAMMATES),
-    shutdownRequestedTargets: uniqueStrings(value?.shutdownRequestedTargets, MAX_REMEMBERED_TEAMMATES),
-    shutdownApprovedTargets: uniqueStrings(value?.shutdownApprovedTargets, MAX_REMEMBERED_TEAMMATES),
+    knownTeammates: uniqueParticipantNames(value?.knownTeammates, MAX_REMEMBERED_TEAMMATES),
+    shutdownRequestedTargets: uniqueParticipantNames(value?.shutdownRequestedTargets, MAX_REMEMBERED_TEAMMATES),
+    shutdownApprovedTargets: uniqueParticipantNames(value?.shutdownApprovedTargets, MAX_REMEMBERED_TEAMMATES),
     shutdownRejectedTargets: normalizeRejectedTargets(value?.shutdownRejectedTargets),
     pendingPlanApprovals: normalizePlanApprovals(value?.pendingPlanApprovals),
     pendingIdleNotifications: normalizeIdleNotifications(value?.pendingIdleNotifications),
@@ -161,7 +165,7 @@ function sharedTerminationTaskOverrides(sessionContext = {}) {
   const overrides = {};
 
   for (const record of Object.values(shared.pendingTerminationNotifications || {})) {
-    const teammateName = trimmed(record?.teammateName);
+    const teammateName = participantNameOrEmpty(record?.teammateName);
     for (const task of arrayValue(record?.affectedTasks)) {
       const taskId = trimmed(task?.taskId);
       if (!taskId || assignments[taskId]) continue;
@@ -185,10 +189,10 @@ export function mergedTaskAssignments(sessionContext = {}) {
   const sharedAssignments = sharedTeamState(sessionContext).taskAssignments;
   const terminationOverrides = sharedTerminationTaskOverrides(sessionContext);
   const localAssignments = localTaskSummaryEntries(sessionContext)
-    .filter(([taskId, record]) => openTaskEntry(record) && trimmed(record?.owner) && !terminationOverrides[taskId])
+    .filter(([taskId, record]) => openTaskEntry(record) && participantNameOrEmpty(record?.owner) && !terminationOverrides[taskId])
     .map(([taskId, record]) => [taskId, {
       taskId,
-      owner: trimmed(record?.owner),
+      owner: participantNameOrEmpty(record?.owner),
       subject: trimmed(record?.subject),
       status: trimmed(record?.status),
       blocks: uniqueStrings(record?.blocks, MAX_REMEMBERED_TASK_IDS),
@@ -222,7 +226,7 @@ export function taskSummaryEntries(sessionContext = {}) {
       ...(merged[taskId] || {}),
       subject: trimmed(record?.subject) || trimmed(merged[taskId]?.subject),
       status: trimmed(record?.status) || trimmed(merged[taskId]?.status),
-      owner: trimmed(record?.owner) || trimmed(merged[taskId]?.owner),
+      owner: participantNameOrEmpty(record?.owner) || participantNameOrEmpty(merged[taskId]?.owner),
       blocks: uniqueStrings(record?.blocks, MAX_REMEMBERED_TASK_IDS),
       blockedBy: uniqueStrings(record?.blockedBy || record?.blocked_by, MAX_REMEMBERED_TASK_IDS),
       recordedAt: trimmed(record?.recordedAt) || trimmed(merged[taskId]?.recordedAt),
@@ -250,7 +254,7 @@ export function taskSummaryRecords(sessionContext = {}) {
     .map(([taskId, record]) => ({
       task_id: taskId,
       subject: trimmed(record?.subject),
-      owner: trimmed(record?.owner),
+      owner: participantNameOrEmpty(record?.owner),
       status: trimmed(record?.status),
       blocks: uniqueStrings(record?.blocks, MAX_REMEMBERED_TASK_IDS),
       blocked_by: uniqueStrings(record?.blockedBy || record?.blocked_by, MAX_REMEMBERED_TASK_IDS),
@@ -276,7 +280,7 @@ export function unresolvedTaskIdSet(sessionContext = {}) {
 export function shutdownRejectedTargetRecords(sessionContext = {}) {
   return Object.values(sharedTeamState(sessionContext).shutdownRejectedTargets)
     .map((record) => ({
-      teammate_name: trimmed(record?.name),
+      teammate_name: participantNameOrEmpty(record?.name),
       reason: trimmed(record?.reason),
       recorded_at: trimmed(record?.recordedAt),
     }))

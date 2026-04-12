@@ -1,5 +1,6 @@
 import { compactState } from './host-state-context.mjs';
 import { routeSpecialization } from './decision-specializations.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
 import {
   preferredRouteResponseShape,
   requiredSectionsForRouteShape,
@@ -32,7 +33,7 @@ function isTeamOwnedRouteSpecialization(specialization = '') {
 function routeRole(signals = {}, sessionContext = {}, continuity = {}, specialization = '') {
   const teamContinuity = routeTeamContinuity(continuity);
   const activeTeam = trimmed(teamContinuity.active_team || sessionContext?.teamName);
-  const agentName = trimmed(sessionContext?.agentName);
+  const agentName = participantNameOrEmpty(sessionContext?.agentName);
   const normalizedAgent = agentName.toLowerCase();
   const resolvedSpecialization = trimmed(
     specialization || routeSpecialization(signals, continuity, sessionContext),
