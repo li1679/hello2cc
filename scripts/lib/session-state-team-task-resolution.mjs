@@ -6,6 +6,7 @@ import {
   readTaskOwner,
   readTaskStatus,
   readTaskSubject,
+  toolResponse,
 } from './session-state-task-readers.mjs';
 import { trimmed } from './session-state-basic-helpers.mjs';
 
@@ -33,13 +34,34 @@ export function resolvedTaskStatus(payload = {}, previous = {}, next = {}, taskI
     || trimmed(rememberedTaskSummary(previous, taskId)?.status);
 }
 
+function knownTaskIdsForLinkMirroring(previous = {}, next = {}, taskId = '') {
+  return new Set(normalizeTaskIds([
+    ...normalizeWorkflowState(previous?.workflowState).lastKnownTaskIds,
+    ...normalizeWorkflowState(next?.workflowState).lastKnownTaskIds,
+    taskId,
+  ]));
+}
+
+function responseProvidesTaskLinks(payload = {}, field) {
+  const response = toolResponse(payload);
+  return Array.isArray(response?.task?.[field]) || Array.isArray(response?.data?.task?.[field]);
+}
+
+function mirroredInputLinks(direct = [], previous = {}, next = {}, taskId = '') {
+  const knownTaskIds = knownTaskIdsForLinkMirroring(previous, next, taskId);
+  return normalizeTaskIds(direct).filter((linkedTaskId) => knownTaskIds.has(linkedTaskId));
+}
+
 export function resolvedTaskBlocks(payload = {}, previous = {}, next = {}, taskId = '') {
   const direct = readTaskBlocks(payload);
   if (direct.length > 0 || payload?.tool_input?.addBlocks !== undefined) {
     const current = normalizeTaskIds(rememberedTaskSummary(next, taskId)?.blocks || rememberedTaskSummary(previous, taskId)?.blocks);
+    const links = responseProvidesTaskLinks(payload, 'blocks')
+      ? normalizeTaskIds(direct)
+      : mirroredInputLinks(direct, previous, next, taskId);
     return normalizeTaskIds([
       ...current,
-      ...direct,
+      ...links,
     ]);
   }
 
@@ -53,9 +75,12 @@ export function resolvedTaskBlockedBy(payload = {}, previous = {}, next = {}, ta
   const direct = readTaskBlockedBy(payload);
   if (direct.length > 0 || payload?.tool_input?.addBlockedBy !== undefined) {
     const current = normalizeTaskIds(rememberedTaskSummary(next, taskId)?.blockedBy || rememberedTaskSummary(previous, taskId)?.blockedBy);
+    const links = responseProvidesTaskLinks(payload, 'blockedBy')
+      ? normalizeTaskIds(direct)
+      : mirroredInputLinks(direct, previous, next, taskId);
     return normalizeTaskIds([
       ...current,
-      ...direct,
+      ...links,
     ]);
   }
 

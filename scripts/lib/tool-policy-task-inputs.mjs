@@ -1,26 +1,8 @@
-import { activeTeamName } from './capability-policy-helpers.mjs';
 import { participantNameOrEmpty } from './participant-name.mjs';
-import {
-  hasKnownTask,
-  knownTeammateNames,
-  taskIdFromInput,
-} from './tool-policy-state.mjs';
+import { taskIdFromInput } from './tool-policy-state.mjs';
 
 function trimmed(value) {
   return String(value || '').trim();
-}
-
-function isReservedTeamOwner(name) {
-  const normalized = trimmed(name).toLowerCase();
-  return ['team-lead', 'main', 'default'].includes(normalized);
-}
-
-function taskLinkIds(value) {
-  return [...new Set(
-    (Array.isArray(value) ? value : [])
-      .map((entry) => trimmed(entry))
-      .filter(Boolean),
-  )];
 }
 
 /**
@@ -61,7 +43,6 @@ export function normalizeTaskUpdateInput(input = {}, sessionContext = {}) {
   const placeholderReason = rawOwner && !owner
     ? `hello2cc stripped placeholder TaskUpdate.owner=${JSON.stringify(rawOwner)}; omitted owner values must stay empty instead of being treated as unknown teammates`
     : '';
-  const linkedTasks = taskLinkIds([...(Array.isArray(input?.addBlocks) ? input.addBlocks : []), ...(Array.isArray(input?.addBlockedBy) ? input.addBlockedBy : [])]);
 
   if (!taskId) {
     return {
@@ -69,35 +50,6 @@ export function normalizeTaskUpdateInput(input = {}, sessionContext = {}) {
       changed: normalizedInput !== input,
       reason: placeholderReason,
       blocked: false,
-    };
-  }
-
-  const activeTeam = activeTeamName(sessionContext);
-  if (activeTeam && owner && !isReservedTeamOwner(owner) && !knownTeammateNames(sessionContext).includes(owner)) {
-    return {
-      input: normalizedInput,
-      changed: false,
-      blocked: true,
-      reason: `hello2cc blocked TaskUpdate owner assignment for "${owner}" because active team "${activeTeam}" does not have that teammate in current continuity yet; create or surface the real teammate first, then assign via TaskUpdate(owner)`,
-    };
-  }
-
-  if (linkedTasks.includes(taskId)) {
-    return {
-      input: normalizedInput,
-      changed: false,
-      blocked: true,
-      reason: `hello2cc blocked TaskUpdate for task "${taskId}" because a task cannot block itself; use another real taskId in addBlocks/addBlockedBy`,
-    };
-  }
-
-  const unknownLinkedTasks = linkedTasks.filter((linkedTaskId) => !hasKnownTask(sessionContext, linkedTaskId));
-  if (unknownLinkedTasks.length > 0) {
-    return {
-      input: normalizedInput,
-      changed: false,
-      blocked: true,
-      reason: `hello2cc blocked TaskUpdate for task "${taskId}" because blocker references ${unknownLinkedTasks.map((id) => `"${id}"`).join(', ')} are not known in current task-board continuity; refresh with TaskList/TaskGet before mutating blocker state`,
     };
   }
 

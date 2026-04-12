@@ -81,7 +81,7 @@ test('pre-task-update no longer pre-denies TaskUpdate before TaskGet and leaves 
   assert.deepEqual(output, { suppressOutput: true });
 });
 
-test('pre-task-update blocks assigning a task to an unknown teammate inside an active team', () => {
+test('pre-task-update no longer pre-denies owner assignment to names not yet surfaced in continuity', () => {
   const env = isolatedEnv();
   const sessionId = 'task-update-unknown-teammate';
 
@@ -123,7 +123,7 @@ test('pre-task-update blocks assigning a task to an unknown teammate inside an a
     },
   }, env);
 
-  const blocked = run('pre-task-update', {
+  const output = run('pre-task-update', {
     session_id: sessionId,
     tool_name: 'TaskUpdate',
     tool_input: {
@@ -132,11 +132,10 @@ test('pre-task-update blocks assigning a task to an unknown teammate inside an a
     },
   }, env);
 
-  assert.equal(blocked.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(blocked.hookSpecificOutput.permissionDecisionReason, /does not have that teammate|surface the real teammate first/i);
+  assert.deepEqual(output, { suppressOutput: true });
 });
 
-test('pre-task-update blocks self-blocking and unknown blocker references', () => {
+test('pre-task-update no longer pre-denies self-blocking or unknown blocker references', () => {
   const env = isolatedEnv();
   const sessionId = 'task-update-blockers-guarded';
 
@@ -186,8 +185,7 @@ test('pre-task-update blocks self-blocking and unknown blocker references', () =
       addBlockedBy: ['7'],
     },
   }, env);
-  assert.equal(selfBlocked.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(selfBlocked.hookSpecificOutput.permissionDecisionReason, /cannot block itself|block itself/i);
+  assert.deepEqual(selfBlocked, { suppressOutput: true });
 
   const unknownBlocked = run('pre-task-update', {
     session_id: sessionId,
@@ -197,8 +195,7 @@ test('pre-task-update blocks self-blocking and unknown blocker references', () =
       addBlockedBy: ['99'],
     },
   }, env);
-  assert.equal(unknownBlocked.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(unknownBlocked.hookSpecificOutput.permissionDecisionReason, /not known in current task-board continuity|refresh with TaskList\/TaskGet/i);
+  assert.deepEqual(unknownBlocked, { suppressOutput: true });
 
   const allowed = run('pre-task-update', {
     session_id: sessionId,
@@ -414,6 +411,46 @@ test('pre-enter-plan-mode no longer denies clear comparison prompts and still al
   }, env);
 
   assert.deepEqual(allowed, { suppressOutput: true });
+});
+
+test('task continuity does not mirror unknown blocker ids from TaskUpdate input when the host response omits resolved links', () => {
+  const env = isolatedEnv();
+  const sessionId = 'task-update-unknown-blocker-continuity';
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TaskCreate',
+    tool_response: {
+      task: {
+        id: '7',
+        subject: 'Implement API',
+      },
+    },
+  }, env);
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TaskUpdate',
+    tool_input: {
+      taskId: '7',
+      addBlockedBy: ['99'],
+    },
+    tool_response: {
+      success: true,
+      taskId: '7',
+      updatedFields: ['blockedBy'],
+    },
+  }, env);
+
+  const output = run('route', {
+    session_id: sessionId,
+    tools: ['TaskGet', 'TaskUpdate'],
+    prompt: 'Continue the tracked task-board work.',
+  }, env);
+  const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+
+  assert.deepEqual(state.host.continuity.known_task_ids, ['7']);
+  assert.equal(state.host.continuity.task_summaries['7'].blockedBy, undefined);
 });
 
 test('pre-enter-plan-mode allows structurally complex non-lexicon prompts', () => {

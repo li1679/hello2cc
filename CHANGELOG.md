@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.5.8 - 2026-04-12
+
+- 去掉 hello2cc 对 `TaskUpdate(owner/addBlocks/addBlockedBy)` 的越界前置 deny，恢复到 Claude Code 原生 `TaskUpdate` 先执行、由宿主自身处理输入的边界
+- 修复 `TaskUpdate` 成功后 continuity 对 blocker 的镜像逻辑：当宿主返回里没有真实依赖结果时，只回填当前连续体里已知的 task 链接，避免把不存在的 blocker id 幻觉写进后续 handoff / blocker 状态
+- 补充 owner 未 surfaced、self-block / unknown blocker 放行，以及 unknown blocker 不再污染 continuity 的回归测试
+
 ## 0.5.7 - 2026-04-12
 
 - 修复 `issue #15`：`TaskCreated` 不再沿用完成态质量门槛，恢复到 Claude Code 原生创建语义，避免短描述、topic-only 描述或空描述在建任务阶段被 hello2cc 额外拦截
