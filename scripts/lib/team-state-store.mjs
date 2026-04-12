@@ -3,6 +3,7 @@ import {
   participantNameOrEmpty,
   uniqueParticipantNames,
 } from './participant-name.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 const TEAM_STATE_PATH = 'runtime/team-context.json';
 const MAX_TEAM_ENTRIES = 20;
@@ -189,7 +190,7 @@ function normalizePendingTerminationNotifications(entries = {}) {
 
 function normalizeTeamEntry(value = {}) {
   return {
-    teamName: trimmed(value?.teamName),
+    teamName: realTeamNameOrEmpty(value?.teamName),
     knownTeammates: uniqueParticipantNames(value?.knownTeammates),
     shutdownRequestedTargets: uniqueParticipantNames(value?.shutdownRequestedTargets),
     shutdownApprovedTargets: uniqueParticipantNames(value?.shutdownApprovedTargets),
@@ -203,7 +204,7 @@ function normalizeTeamEntry(value = {}) {
 }
 
 function normalizeTeamKey(teamName) {
-  return trimmed(teamName).toLowerCase();
+  return realTeamNameOrEmpty(teamName).toLowerCase();
 }
 
 function compactEntries(entries = {}) {
@@ -231,7 +232,7 @@ export function readTeamEntry(teamName) {
 }
 
 export function mutateTeamEntry(teamName, updater) {
-  const normalizedTeamName = trimmed(teamName);
+  const normalizedTeamName = realTeamNameOrEmpty(teamName);
   const key = normalizeTeamKey(normalizedTeamName);
   if (!key) return {};
 

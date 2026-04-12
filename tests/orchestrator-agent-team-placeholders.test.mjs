@@ -1,6 +1,10 @@
 import {
   test,
   assert,
+  mkdirSync,
+  writeFileSync,
+  join,
+  parseAdditionalContextJson,
   run,
   isolatedEnv,
   writeTranscript,
@@ -121,4 +125,53 @@ test('transcript placeholder team names do not poison active team autofill', () 
 
   assert.equal(output.hookSpecificOutput.updatedInput.name, undefined);
   assert.equal(output.hookSpecificOutput.updatedInput.team_name, undefined);
+});
+
+test('stale placeholder team state does not resurface as active team continuity', () => {
+  const env = isolatedEnv();
+  const sessionId = 'stale-placeholder-team-state';
+  const runtimeDir = join(env.CLAUDE_PLUGIN_DATA, 'runtime');
+
+  mkdirSync(runtimeDir, { recursive: true });
+  writeFileSync(join(runtimeDir, 'session-context.json'), JSON.stringify({
+    [sessionId]: {
+      teamName: 'none',
+      workflowState: {
+        activeTaskBoard: true,
+        lastKnownTaskIds: ['7'],
+        taskSummaries: {
+          '7': {
+            subject: 'Implement frontend slice',
+            status: 'in_progress',
+            owner: 'frontend-owner',
+            blocks: [],
+            blockedBy: [],
+          },
+        },
+      },
+      preconditionFailures: {
+        missingTeams: {
+          none: {
+            teamName: 'none',
+            error: 'Team "none" does not exist. Call spawnTeam first to create the team.',
+            toolName: 'Agent',
+            source: 'tool_failure',
+            recordedAt: '2026-04-12T00:00:00.000Z',
+          },
+        },
+      },
+      updatedAt: '2026-04-12T00:00:00.000Z',
+    },
+  }, null, 2), 'utf8');
+
+  const output = run('route', {
+    session_id: sessionId,
+    tools: ['TaskList', 'TaskGet', 'TaskUpdate', 'SendMessage'],
+    prompt: 'Continue coordinating the task board.',
+  }, env);
+  const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+
+  assert.equal(state.host.continuity.team?.active_team, undefined);
+  assert.equal(state.guards?.missing_teams, undefined);
+  assert.doesNotMatch(output.hookSpecificOutput.additionalContext, /"none"/i);
 });

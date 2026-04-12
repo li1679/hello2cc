@@ -4,6 +4,7 @@ import {
   requestNeedsTeamWorkflow,
 } from './capability-policy-helpers.mjs';
 import { participantNameOrEmpty } from './participant-name.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 function trimmed(value) {
   return String(value || '').trim();
@@ -62,7 +63,7 @@ function hasActiveNativeContinuity(sessionContext = {}) {
     : {};
 
   return Boolean(
-    trimmed(sessionContext?.teamName)
+    realTeamNameOrEmpty(sessionContext?.teamName)
     || participantNameOrEmpty(sessionContext?.agentName)
     || (Array.isArray(sessionContext?.workflowNames) && sessionContext.workflowNames.length > 0)
     || (Array.isArray(sessionContext?.loadedCommandNames) && sessionContext.loadedCommandNames.length > 0)

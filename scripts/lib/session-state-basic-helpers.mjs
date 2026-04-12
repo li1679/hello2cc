@@ -58,14 +58,15 @@ function readToolTeamName(payload = {}) {
   ];
 
   return candidates
-    .map((value) => String(value || '').trim())
+    .map((value) => realTeamNameOrEmpty(value))
     .find(Boolean) || '';
 }
 
 function failureRecord({ cwd = '', teamName = '', error = '', toolName = '', source = '' } = {}) {
+  const normalizedTeamName = realTeamNameOrEmpty(teamName);
   return {
     ...(cwd ? { cwd } : {}),
-    ...(teamName ? { teamName } : {}),
+    ...(normalizedTeamName ? { teamName: normalizedTeamName } : {}),
     ...(error ? { error } : {}),
     ...(toolName ? { toolName } : {}),
     ...(source ? { source } : {}),

@@ -1,4 +1,5 @@
 import { promptMentionsAny } from './intent-slots.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 const TABLE_OUTPUT_MARKERS = [
   'table',
@@ -117,7 +118,7 @@ export function hasApprovedPlanExecutionBoundary(sessionContext = {}) {
 export function hasSoloTrackedExecutionBoundary(sessionContext = {}) {
   const state = workflowState(sessionContext);
   return Boolean(
-    !trimmed(sessionContext?.teamName) &&
+    !realTeamNameOrEmpty(sessionContext?.teamName) &&
     (
       state?.activeTaskBoard ||
       trimmed(state?.lastTaskCreatedId) ||

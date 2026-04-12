@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  existsSync,
   isolatedEnv,
   parseAdditionalContextJson,
   run,
@@ -298,4 +299,24 @@ test('leader route surfaces pending idle notifications and follow-up clears them
   assert.equal(clearedState.host.continuity.team.mailbox_summary, undefined);
   assert.equal(clearedState.host.continuity.team.handoff_candidates, undefined);
   assert.equal(clearedState.host.continuity.team.handoff_summary, undefined);
+});
+
+test('teammate-idle ignores placeholder team names', () => {
+  const env = isolatedEnv();
+  const hookOutput = runTeammateIdle({
+    session_id: 'teammate-idle-placeholder-team',
+    hook_event_name: 'TeammateIdle',
+    teammate_name: 'frontend-owner',
+    team_name: '__omit__',
+  }, env);
+
+  assert.deepEqual(hookOutput, { suppressOutput: true });
+
+  const teamStatePath = join(env.CLAUDE_PLUGIN_DATA, 'runtime', 'team-context.json');
+  if (!existsSync(teamStatePath)) {
+    return;
+  }
+
+  const teamState = JSON.parse(readFileSync(teamStatePath, 'utf8'));
+  assert.deepEqual(teamState, {});
 });

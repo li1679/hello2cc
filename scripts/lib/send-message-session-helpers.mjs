@@ -1,12 +1,13 @@
 import { knownTeammateNames } from './tool-policy-state.mjs';
 import { participantNameOrEmpty } from './participant-name.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 export function trimmed(value) {
   return String(value || '').trim();
 }
 
 export function activeTeamName(sessionContext = {}) {
-  return trimmed(sessionContext?.teamName);
+  return realTeamNameOrEmpty(sessionContext?.teamName);
 }
 
 export function activeAgentName(sessionContext = {}) {

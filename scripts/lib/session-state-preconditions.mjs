@@ -22,6 +22,7 @@ import {
   recordWebSearchFailure,
   recordWebSearchSuccess,
 } from './session-state-websearch-helpers.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 export { rememberTeammateIdle };
 
@@ -111,7 +112,7 @@ export function rememberToolSuccess(payload = {}) {
     const workflowState = rememberWorkflowToolSuccess(current, payload);
 
     if (toolName === 'TeamCreate') {
-      const requestedTeam = String(payload?.tool_input?.team_name || '').trim();
+      const requestedTeam = realTeamNameOrEmpty(payload?.tool_input?.team_name);
       const actualTeam = readToolTeamName(payload);
       for (const teamName of [requestedTeam, actualTeam]) {
         if (!teamName) continue;
@@ -120,7 +121,7 @@ export function rememberToolSuccess(payload = {}) {
     }
 
     if (toolName === 'TeamDelete') {
-      const deletedTeam = readToolTeamName(payload) || String(current.teamName || '').trim();
+      const deletedTeam = readToolTeamName(payload) || realTeamNameOrEmpty(current.teamName);
       if (deletedTeam) {
         missingTeams[normalizeFailureKey(deletedTeam, true)] = failureRecord({
           teamName: deletedTeam,
@@ -132,7 +133,7 @@ export function rememberToolSuccess(payload = {}) {
     }
 
     if (toolName === 'Agent') {
-      const teamName = String(payload?.tool_input?.team_name || '').trim();
+      const teamName = realTeamNameOrEmpty(payload?.tool_input?.team_name);
       if (teamName) {
         delete missingTeams[normalizeFailureKey(teamName, true)];
       }

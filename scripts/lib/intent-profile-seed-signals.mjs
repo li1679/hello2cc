@@ -7,6 +7,7 @@ import {
   isThinNeutralPrompt,
   knownSurfaceMentioned,
 } from './intent-profile-shared.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 /**
  * Builds the normalized seed shared by the intent derivation stages.
@@ -59,7 +60,7 @@ export function buildIntentProfileSeed(prompt, sessionContext = {}) {
     collaborationMentioned: collaboration.has('team') || collaboration.has('task_board'),
     coordinationHeavy: collaboration.has('task_board') || collaboration.has('owner_handoff'),
     handoff: collaboration.has('owner_handoff'),
-    activeTeam: String(sessionContext?.teamName || '').trim(),
+    activeTeam: realTeamNameOrEmpty(sessionContext?.teamName),
     parallelRequested: collaboration.has('parallel'),
   };
 }

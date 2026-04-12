@@ -2,7 +2,9 @@ import {
   test,
   assert,
   existsSync,
+  mkdirSync,
   readFileSync,
+  writeFileSync,
   join,
   run,
   isolatedEnv,
@@ -349,4 +351,32 @@ test('config-change clears cached session context so stale models are not reused
 
   const cached = JSON.parse(readFileSync(cachePath, 'utf8'));
   assert.equal(cached['config-change'], undefined);
+});
+
+test('team-delete does not re-pollute missingTeams from stale placeholder active team state', () => {
+  const env = isolatedEnv();
+  const sessionId = 'team-delete-stale-placeholder';
+  const runtimeDir = join(env.CLAUDE_PLUGIN_DATA, 'runtime');
+
+  mkdirSync(runtimeDir, { recursive: true });
+  writeFileSync(join(runtimeDir, 'session-context.json'), JSON.stringify({
+    [sessionId]: {
+      teamName: '__omit__',
+      updatedAt: '2026-04-12T00:00:00.000Z',
+    },
+  }, null, 2), 'utf8');
+
+  run('post-tool-use', {
+    session_id: sessionId,
+    tool_name: 'TeamDelete',
+    tool_input: {},
+    tool_response: {
+      success: true,
+    },
+  }, env);
+
+  const cachePath = join(env.CLAUDE_PLUGIN_DATA, 'runtime', 'session-context.json');
+  const cached = JSON.parse(readFileSync(cachePath, 'utf8'));
+
+  assert.equal(cached[sessionId]?.preconditionFailures?.missingTeams, undefined);
 });

@@ -11,6 +11,7 @@ import {
   normalizeSessionId,
 } from './session-state-store.mjs';
 import { participantNameOrEmpty } from './participant-name.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 function normalizeIntentProfile(profile = {}) {
   const normalized = summarizeIntentForState(profile);
@@ -42,6 +43,10 @@ export function sessionContextFromPayload(payload = {}) {
 }
 
 function rememberableContext(context = {}) {
+  const attachedTeamContext = context.attachedTeamContext && typeof context.attachedTeamContext === 'object'
+    ? context.attachedTeamContext
+    : {};
+
   return {
     mainModel: String(context.mainModel || '').trim(),
     outputStyle: String(context.outputStyle || '').trim(),
@@ -60,13 +65,16 @@ function rememberableContext(context = {}) {
     availableDeferredToolNames: Array.isArray(context.availableDeferredToolNames) ? context.availableDeferredToolNames : [],
     loadedDeferredToolNames: Array.isArray(context.loadedDeferredToolNames) ? context.loadedDeferredToolNames : [],
     mcpResources: Array.isArray(context.mcpResources) ? context.mcpResources : [],
-    teamName: String(context.teamName || '').trim(),
+    teamName: realTeamNameOrEmpty(context.teamName),
     agentName: participantNameOrEmpty(context.agentName),
     teamConfigPath: String(context.teamConfigPath || '').trim(),
     taskListPath: String(context.taskListPath || '').trim(),
-    attachedTeamContext: context.attachedTeamContext && typeof context.attachedTeamContext === 'object'
-      ? context.attachedTeamContext
-      : {},
+    attachedTeamContext: {
+      ...(realTeamNameOrEmpty(attachedTeamContext.teamName) ? { teamName: realTeamNameOrEmpty(attachedTeamContext.teamName) } : {}),
+      ...(participantNameOrEmpty(attachedTeamContext.agentName) ? { agentName: participantNameOrEmpty(attachedTeamContext.agentName) } : {}),
+      ...(String(attachedTeamContext.teamConfigPath || '').trim() ? { teamConfigPath: String(attachedTeamContext.teamConfigPath).trim() } : {}),
+      ...(String(attachedTeamContext.taskListPath || '').trim() ? { taskListPath: String(attachedTeamContext.taskListPath).trim() } : {}),
+    },
     attachedPlanMode: context.attachedPlanMode && typeof context.attachedPlanMode === 'object'
       ? context.attachedPlanMode
       : {},

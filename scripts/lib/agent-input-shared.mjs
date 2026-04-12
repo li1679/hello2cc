@@ -1,6 +1,6 @@
 import { worktreePreconditionsAppearSatisfied } from './worktree-preconditions.mjs';
 import { hasActiveTaskBoard } from './tool-policy-state.mjs';
-import { isNonRealTeamName, isOmittedTeamPlaceholder } from './team-name.mjs';
+import { isNonRealTeamName, isOmittedTeamPlaceholder, realTeamNameOrEmpty } from './team-name.mjs';
 
 function trimmed(value) {
   return String(value || '').trim();
@@ -46,7 +46,7 @@ export function activeWorktreeFailure(sessionContext = {}) {
 }
 
 export function knownMissingTeamFailure(sessionContext = {}, teamName) {
-  const normalizedTeamName = normalizedFailureKey(teamName, true);
+  const normalizedTeamName = normalizedFailureKey(realTeamNameOrEmpty(teamName), true);
   if (!normalizedTeamName) return null;
 
   const failures = preconditionFailures(sessionContext);
@@ -136,8 +136,8 @@ export function hasIntentParallelOrTeamState(sessionContext = {}) {
 }
 
 export function provenActiveTeamContext(sessionContext = {}) {
-  const activeTeamName = trimmed(sessionContext?.teamName);
-  if (!activeTeamName || isImplicitAssistantTeamName(activeTeamName)) {
+  const activeTeamName = realTeamNameOrEmpty(sessionContext?.teamName);
+  if (!activeTeamName) {
     return false;
   }
 

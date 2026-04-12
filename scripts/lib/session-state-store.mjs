@@ -1,4 +1,6 @@
 import { readPluginDataJson, writePluginDataJson } from './plugin-data.mjs';
+import { participantNameOrEmpty } from './participant-name.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 const SESSION_STATE_PATH = 'runtime/session-context.json';
 const MAX_SESSION_ENTRIES = 50;
@@ -24,12 +26,96 @@ function trimFailureMap(entries = {}) {
   );
 }
 
+function trimmed(value) {
+  return String(value || '').trim();
+}
+
+function normalizeMissingTeams(entries = {}) {
+  return Object.fromEntries(
+    Object.entries(entries)
+      .map(([fallbackName, record]) => {
+        const teamName = realTeamNameOrEmpty(record?.teamName || fallbackName);
+        const recordedAt = trimmed(record?.recordedAt);
+        if (!teamName || !recordedAt) {
+          return null;
+        }
+
+        return [teamName.toLowerCase(), {
+          ...(trimmed(record?.cwd) ? { cwd: trimmed(record?.cwd) } : {}),
+          teamName,
+          ...(trimmed(record?.error) ? { error: trimmed(record?.error) } : {}),
+          ...(trimmed(record?.toolName) ? { toolName: trimmed(record?.toolName) } : {}),
+          ...(trimmed(record?.source) ? { source: trimmed(record?.source) } : {}),
+          recordedAt,
+        }];
+      })
+      .filter(Boolean)
+      .sort(([, left], [, right]) => String(right.recordedAt).localeCompare(String(left.recordedAt)))
+      .slice(0, MAX_PRECONDITION_FAILURES),
+  );
+}
+
+function normalizeAttachedTeamContext(context) {
+  if (!context || typeof context !== 'object') {
+    return undefined;
+  }
+
+  const teamName = realTeamNameOrEmpty(context?.teamName);
+  const agentName = participantNameOrEmpty(context?.agentName);
+  const teamConfigPath = trimmed(context?.teamConfigPath);
+  const taskListPath = trimmed(context?.taskListPath);
+
+  if (!teamName && !agentName && !teamConfigPath && !taskListPath) {
+    return undefined;
+  }
+
+  return {
+    ...(teamName ? { teamName } : {}),
+    ...(agentName ? { agentName } : {}),
+    ...(teamConfigPath ? { teamConfigPath } : {}),
+    ...(taskListPath ? { taskListPath } : {}),
+  };
+}
+
+function normalizeSessionEntry(entry = {}) {
+  const normalized = {
+    ...entry,
+    teamName: realTeamNameOrEmpty(entry?.teamName),
+    agentName: participantNameOrEmpty(entry?.agentName),
+  };
+
+  if (entry?.preconditionFailures) {
+    normalized.preconditionFailures = normalizePreconditionFailures(entry.preconditionFailures);
+  }
+
+  const attachedTeamContext = normalizeAttachedTeamContext(entry?.attachedTeamContext);
+  if (attachedTeamContext) {
+    normalized.attachedTeamContext = attachedTeamContext;
+  } else {
+    delete normalized.attachedTeamContext;
+  }
+
+  if (!normalized.teamName) {
+    delete normalized.teamName;
+  }
+
+  if (!normalized.agentName) {
+    delete normalized.agentName;
+  }
+
+  if (normalized.preconditionFailures && Object.keys(normalized.preconditionFailures).length === 0) {
+    delete normalized.preconditionFailures;
+  }
+
+  return normalized;
+}
+
 export function normalizePreconditionFailures(failures = {}) {
   const worktreeByCwd = failures?.worktreeByCwd && typeof failures.worktreeByCwd === 'object'
     ? trimFailureMap(failures.worktreeByCwd)
     : {};
   const missingTeams = failures?.missingTeams && typeof failures.missingTeams === 'object'
-    ? trimFailureMap(failures.missingTeams)
+    ? normalizeMissingTeams(failures.missingTeams)
     : {};
 
   const next = {};
@@ -51,7 +137,7 @@ export function readSessionEntry(sessionId) {
   if (!key) return {};
 
   const sessions = readSessions();
-  return sessions[key] || {};
+  return normalizeSessionEntry(sessions[key] || {});
 }
 
 /**
@@ -62,12 +148,9 @@ export function mutateSessionEntry(sessionId, updater) {
   if (!key) return {};
 
   const sessions = readSessions();
-  const current = sessions[key] || {};
+  const current = normalizeSessionEntry(sessions[key] || {});
   const updated = updater({ ...current }) || {};
-  const nextEntry = {
-    ...updated,
-    ...(updated.preconditionFailures ? { preconditionFailures: normalizePreconditionFailures(updated.preconditionFailures) } : {}),
-  };
+  const nextEntry = normalizeSessionEntry(updated);
 
   if (nextEntry.preconditionFailures && Object.keys(nextEntry.preconditionFailures).length === 0) {
     delete nextEntry.preconditionFailures;

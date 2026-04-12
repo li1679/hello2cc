@@ -2,6 +2,7 @@ import { buildVisibleMailboxState } from './team-mailbox-state.mjs';
 import { buildTeamActionState } from './team-action-state.mjs';
 import { buildTeamFollowUpState } from './team-follow-up-state.mjs';
 import { participantNameOrEmpty } from './participant-name.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 import {
   MAX_REMEMBERED_TASK_IDS,
   arrayValue,
@@ -208,7 +209,7 @@ export function teamContinuitySnapshot(sessionContext = {}) {
   });
 
   return {
-    active_team: trimmed(sessionContext?.teamName) || undefined,
+    active_team: realTeamNameOrEmpty(sessionContext?.teamName) || undefined,
     known_teammates: teammates.length ? teammates : undefined,
     open_task_ids: openTaskIds(sessionContext).length ? openTaskIds(sessionContext) : undefined,
     open_task_owners: ownedOpenTaskOwners(sessionContext).length ? ownedOpenTaskOwners(sessionContext) : undefined,

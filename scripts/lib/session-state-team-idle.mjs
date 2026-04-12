@@ -15,13 +15,14 @@ import {
 } from './session-state-team-helpers.mjs';
 import { participantNameOrEmpty } from './participant-name.mjs';
 import { trimmed } from './session-state-basic-helpers.mjs';
+import { realTeamNameOrEmpty } from './team-name.mjs';
 
 /**
  * Records teammate idle notifications inside the shared team state store.
  */
 export function rememberTeammateIdle(payload = {}) {
   const sessionId = normalizeSessionId(payload?.session_id);
-  const teamName = trimmed(payload?.team_name);
+  const teamName = realTeamNameOrEmpty(payload?.team_name);
   const teammateName = participantNameOrEmpty(payload?.teammate_name || payload?.agent_name);
   if (!shouldTrackSharedTeam(teamName) || !teammateName) {
     return {};
