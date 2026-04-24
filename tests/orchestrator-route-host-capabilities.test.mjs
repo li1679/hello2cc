@@ -94,7 +94,7 @@ test('route emits MCP resource state when the host already surfaced it', () => {
   assert.ok(state.policy.policies.some((policy) => policy.id === 'mcp-resources' && Array.isArray(policy.instruction_servers) && policy.instruction_servers.includes('github')));
 });
 
-test('route derives language-agnostic capability probes from question shape', () => {
+test('route derives capability probes from host-capability question anchors', () => {
   const env = isolatedEnv();
   const output = run('route', {
     session_id: 'route-capability-probe',
@@ -302,3 +302,4 @@ test('route keeps straightforward multi-file implementation free of semantic rou
 
   assert.deepEqual(output, { suppressOutput: true });
 });
+

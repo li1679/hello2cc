@@ -167,6 +167,53 @@ export function derivePlanningSignals(
 /**
  * Derives capability-discovery signals from question shape and visible host surfaces.
  */
+const HOST_CAPABILITY_QUESTION_MARKERS = [
+  'claude code',
+  'tool',
+  'tools',
+  'agent',
+  'agents',
+  'skill',
+  'skills',
+  'mcp',
+  'hook',
+  'hooks',
+  'plugin',
+  'plugins',
+  'permission',
+  'permissions',
+  'workflow',
+  'workflows',
+  'capability',
+  'capabilities',
+  '可用工具',
+  '工具',
+  '智能体',
+  '子代理',
+  '技能',
+  '权限',
+  '插件',
+  '工作流',
+  '能力',
+  '外部能力',
+  '外部连携',
+  '連携',
+  '使える機能',
+  '利用できる外部連携',
+];
+
+function hasCapabilityQuestionAnchor(seed = {}) {
+  return Boolean(
+    seed.promptEnvelope?.knownSurfaceMentioned ||
+    seed.explicitHostFeature ||
+    seed.mcp ||
+    seed.skillSurface ||
+    seed.guideTopic ||
+    seed.collaboration?.has?.('worktree') ||
+    promptMentionsAny(seed.slots?.text, HOST_CAPABILITY_QUESTION_MARKERS)
+  );
+}
+
 export function deriveCapabilitySignals(seed, sessionContext = {}, signals = {}) {
   return {
     capabilityProbeShape: Boolean(
@@ -192,6 +239,7 @@ export function deriveCapabilitySignals(seed, sessionContext = {}, signals = {})
       !seed.frontend &&
       !seed.backend &&
       !signals.workflowContinuation &&
+      hasCapabilityQuestionAnchor(seed) &&
       hasCapabilityDiscoverySurface(sessionContext)
     ),
     capabilityQuery: Boolean(
