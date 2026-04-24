@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.1.0 - 2cc local fork
+
+- Rename the personal local fork to `2cc`.
+- Keep CCSwitch as the model mapping layer and remove npm publishing intent.
+- Add route regressions for stale checklist leakage after topic changes.
+- Narrow generic capability routing so ordinary questions do not become Claude Code capability prompts.
+- Compact route guidance so third-party models do not echo internal playbooks or section contracts.
 ## 0.5.9 - 2026-04-12
 
 - 去掉 hello2cc 对 `TeamCreate` 的两条非宿主确定性前置 deny：普通非 team 语义请求、以及“当前已存在 active team”场景都改为交还 Claude Code 原生处理
@@ -291,3 +298,4 @@
 - 切换为 native-first 路由
 - 修复 `Agent.model` 注入字段
 - 新增原生输出风格和基础自动化校验
+
