@@ -95,6 +95,7 @@ export function deriveExplainSignals(seed, artifactSignals = {}, workflowSignals
   const explainFromGuideTopic = Boolean(
     !seed.actions.has('explain') &&
     seed.guideTopic &&
+    !hasExplicitCapabilitySurfaceAnchor(seed) &&
     seed.questionIntent &&
     !seed.compare &&
     !currentInfoSignals.currentInfo &&
@@ -214,6 +215,21 @@ function hasCapabilityQuestionAnchor(seed = {}) {
   );
 }
 
+function hasExplicitCapabilitySurfaceAnchor(seed = {}) {
+  const explicitCapabilityMarkers = HOST_CAPABILITY_QUESTION_MARKERS.filter(
+    (marker) => !['claude code', 'hook', 'hooks', 'plugin', 'plugins'].includes(marker),
+  );
+
+  return Boolean(
+    seed.promptEnvelope?.knownSurfaceMentioned ||
+    seed.explicitHostFeature ||
+    seed.mcp ||
+    seed.skillSurface ||
+    seed.collaboration?.has?.('worktree') ||
+    promptMentionsAny(seed.slots?.text, explicitCapabilityMarkers)
+  );
+}
+
 export function deriveCapabilitySignals(seed, sessionContext = {}, signals = {}) {
   return {
     capabilityProbeShape: Boolean(
@@ -231,10 +247,6 @@ export function deriveCapabilitySignals(seed, sessionContext = {}, signals = {})
       !signals.implement &&
       !signals.release &&
       !seed.verify &&
-      !seed.mcp &&
-      !seed.skillSurface &&
-      !seed.explicitHostFeature &&
-      !seed.guideTopic &&
       !seed.collaboration.size &&
       !seed.frontend &&
       !seed.backend &&

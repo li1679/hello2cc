@@ -41,15 +41,12 @@ test('route emits proxy WebSearch state after repeated zero-search degradation',
   assert.equal(state.websearch.degraded, true);
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.host_boundary_guided, true);
-  assert.equal(state.response_contract.specialization, 'current_info');
-  assert.equal(state.response_contract.selection_basis, 'current_info_boundary');
-  assert.equal(state.response_contract.selection_strength, 'strong');
-  assert.equal(state.response_contract.preferred_shape, 'current_info_status_then_sources_then_uncertainty');
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'websearch_real_source_required'));
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'websearch_retry_cooldown'));
-  assert.equal(state.specialization_candidates.active, 'current_info');
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'current_info' && item.selected));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'current_info' && item.selection_strength === 'strong'));
+  assert.equal(state.route.specialization, 'current_info');
+  assert.equal(state.route.selection_basis, 'current_info_boundary');
+  assert.equal(state.route.selection_strength, 'strong');
+  assert.equal(state.policy.requested_output_shape, 'current_info_status_then_sources_then_uncertainty');
+  assert.ok(state.route.guards.includes('websearch_real_source_required'));
+  assert.ok(state.route.guards.includes('websearch_retry_cooldown'));
 });
 
 test('route emits MCP resource state when the host already surfaced it', () => {
@@ -107,25 +104,14 @@ test('route derives capability probes from host-capability question anchors', ()
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.capability_probe_shape, true);
   assert.equal(state.intent.routing?.capability_query, undefined);
-  assert.equal(state.response_contract.specialization, 'capability');
-  assert.equal(state.response_contract.selection_basis, 'capability_probe_shape');
-  assert.equal(state.response_contract.selection_strength, 'medium');
-  assert.equal(state.response_contract.preferred_shape, 'direct_answer_then_visible_capabilities_then_gap_or_next_step');
-  assert.deepEqual(state.response_contract.required_sections, ['direct_answer', 'visible_capabilities_or_surfaces', 'gap_or_next_step']);
-  assert.equal(state.execution_playbook.specialization, 'capability');
-  assert.deepEqual(state.execution_playbook.ordered_steps, [
-    'inspect_visible_capability_surfaces',
-    'answer_from_visible_surface_or_state_gap',
-    'run_only_the_narrowest_needed_discovery',
-  ]);
+  assert.equal(state.route.specialization, 'capability');
+  assert.equal(state.route.selection_basis, 'capability_probe_shape');
+  assert.equal(state.route.selection_strength, 'medium');
   assert.equal(state.policy.requested_output_shape, 'direct_answer_then_visible_capabilities_then_gap_or_next_step');
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'visible_capability_surface_first'));
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'narrow_discovery_for_real_gap_only'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'visible_surface_answer_before_discovery_fallback'));
+  assert.ok(state.route.guards.includes('visible_capability_surface_first'));
+  assert.ok(state.route.guards.includes('narrow_discovery_for_real_gap_only'));
+  assert.ok(state.route.tie_breakers.includes('visible_surface_answer_before_discovery_fallback'));
   assert.ok(state.policy.policies.some((policy) => policy.id === 'tool-discovery'));
-  assert.equal(state.specialization_candidates.active, 'capability');
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'capability' && item.selected));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'capability' && item.selection_basis === 'capability_probe_shape'));
   assert.match(context, /宿主可用能力、workflow、tool、MCP、agent 或权限边界/);
 });
 
@@ -208,10 +194,10 @@ test('route keeps lexicon-only current-info requests on visible WebSearch surfac
 
   assert.equal(state.intent.analysis.host_boundary_guided, undefined);
   assert.equal(state.intent.analysis.lexicon_guided, true);
-  assert.equal(state.response_contract.specialization, 'current_info');
-  assert.equal(state.response_contract.selection_basis, 'visible_websearch_surface');
-  assert.equal(state.response_contract.selection_strength, 'medium');
-  assert.equal(state.response_contract.preferred_shape, 'current_info_status_then_sources_then_uncertainty');
+  assert.equal(state.route.specialization, 'current_info');
+  assert.equal(state.route.selection_basis, 'visible_websearch_surface');
+  assert.equal(state.route.selection_strength, 'medium');
+  assert.equal(state.policy.requested_output_shape, 'current_info_status_then_sources_then_uncertainty');
 });
 
 test('route derives slash-pair current-info comparisons into WebSearch query hygiene guidance', () => {
@@ -230,10 +216,9 @@ test('route derives slash-pair current-info comparisons into WebSearch query hyg
   assert.equal(state.intent.actions.compare, true);
   assert.equal(state.intent.actions.current_info, true);
   assert.equal(state.intent.output.table, true);
-  assert.equal(state.response_contract.specialization, 'compare');
-  assert.equal(state.response_contract.selection_basis, 'weak_request_shape');
+  assert.equal(state.route.specialization, 'compare');
+  assert.equal(state.route.selection_basis, 'weak_request_shape');
   assert.ok(state.policy.policies.some((policy) => policy.id === 'websearch' && policy.current_info_request));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'current_info'));
   assert.match(context, /先拆成多次短 `WebSearch` 获取真实来源/);
   assert.match(context, /allowed_domains/);
   assert.match(context, /Did 0 searches/);
@@ -287,8 +272,6 @@ test('route exposes transcript attachment reminders and surfaced agent deltas in
     },
   ]);
   assert.equal(state.host.attachments.output_style, 'compact-native');
-  assert.equal(state.renderer_contract.style_name, 'compact-native');
-  assert.equal(state.renderer_contract.style_source, 'attachment');
   assert.equal(state.host.attachments.critical_system_reminder.active, true);
   assert.match(state.host.attachments.critical_system_reminder.preview, /workflow boundary/i);
 });

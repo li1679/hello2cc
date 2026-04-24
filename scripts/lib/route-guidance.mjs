@@ -2,14 +2,11 @@ import { buildCapabilityPolicySnapshot, buildRouteCapabilityPolicyLines } from '
 import { buildRouteDecisionTieBreakers } from './decision-tie-breakers.mjs';
 import { buildPromptHostState, compactState, hasDynamicPromptHostState } from './host-state-context.mjs';
 import { analyzeIntentProfile, summarizeIntentForState } from './intent-profile.mjs';
-import { buildRendererContract } from './renderer-contracts.mjs';
 import { buildRouteDecisionLines } from './route-decision-lines.mjs';
 import {
-  buildRouteExecutionPlaybook,
   buildRouteRecoveryPlaybook,
   buildRouteResponseContract,
 } from './route-state-playbooks.mjs';
-import { buildRouteSpecializationCandidates } from './specialization-candidates.mjs';
 import { workflowContinuitySnapshot } from './tool-policy-state.mjs';
 import { selectWorkflowOwner } from './workflow-owner-arbitration.mjs';
 
@@ -27,8 +24,8 @@ const HOST_OWNED_ROUTE_POLICY_IDS = [
 
 function buildHostOwnedDecisionLines(signals = {}, workflowOwner = {}) {
   const lines = [
-    '当前宿主已 surfaced 更高优先级的 skill/workflow owner；主流程沿宿主连续体推进，不要再额外拼一套 hello2cc 私有执行剧本。',
-    'hello2cc 在这一轮只保留 Claude Code 风格外显、原生工具语义、参数净化与 fail-closed 收口；不要覆盖宿主 skill 的步骤编排。',
+    '当前宿主已 surfaced 更高优先级的 skill/workflow owner；主流程沿宿主连续体推进，不要再额外拼一套 2cc 私有执行剧本。',
+    '2cc 在这一轮只保留 Claude Code 风格外显、原生工具语义、参数净化与 fail-closed 收口；不要覆盖宿主 skill 的步骤编排。',
   ];
 
   if (!signals?.lexiconGuided) {
@@ -38,19 +35,98 @@ function buildHostOwnedDecisionLines(signals = {}, workflowOwner = {}) {
   return lines;
 }
 
+function hasRealContinuity(continuity = {}) {
+  return Boolean(
+    continuity.active_task_board ||
+    continuity.plan_mode_entered ||
+    continuity.plan_mode_exited ||
+    continuity.team?.active_team ||
+    continuity.team?.team_action_items?.length ||
+    continuity.team?.handoff_candidates?.length ||
+    continuity.recent_zero_result_toolsearch_queries?.length ||
+    continuity.websearch?.degraded
+  );
+}
+
+function compactRouteState({ responseContract = {}, recoveryPlaybook = {}, decisionTieBreakers = {} } = {}) {
+  return compactState({
+    specialization: responseContract.specialization,
+    selection_basis: responseContract.selection_basis,
+    selection_strength: responseContract.selection_strength,
+    guards: Array.isArray(recoveryPlaybook.recipes)
+      ? recoveryPlaybook.recipes.map((recipe) => recipe.guard).filter(Boolean)
+      : undefined,
+    tie_breakers: Array.isArray(decisionTieBreakers.items)
+      ? decisionTieBreakers.items.map((item) => item.id).filter(Boolean).slice(0, 4)
+      : undefined,
+  });
+}
+
+function buildRoutePolicySnapshot(sessionContext = {}, signals = {}, options = {}, responseContract = {}) {
+  const policy = buildCapabilityPolicySnapshot(sessionContext, signals, options);
+  const requestedOutputShape = responseContract.preferred_shape;
+
+  if (!requestedOutputShape) {
+    return policy;
+  }
+
+  return compactState({
+    ...policy,
+    requested_output_shape: requestedOutputShape,
+    policies: Array.isArray(policy.policies)
+      ? policy.policies.map((item) => (item?.output_shape
+        ? { ...item, output_shape: requestedOutputShape }
+        : item))
+      : policy.policies,
+  });
+}
+
+function buildCompactRouteSnapshot({
+  signals = {},
+  sessionContext = {},
+  workflowOwner = {},
+  routePolicyOptions = {},
+  responseContract = {},
+  recoveryPlaybook = {},
+  decisionTieBreakers = {},
+  hostState = {},
+} = {}) {
+  return compactState({
+    operator_profile: '2cc-local-claude-code-adapter',
+    intent: summarizeIntentForState(signals),
+    workflow_owner: workflowOwner,
+    policy: buildRoutePolicySnapshot(sessionContext, signals, routePolicyOptions, responseContract),
+    route: compactRouteState({ responseContract, recoveryPlaybook, decisionTieBreakers }),
+    ...hostState,
+  });
+}
+
+function shouldEmitRouteContext({
+  routeLines = [],
+  hasDynamicHostState = false,
+  shouldForceSnapshot = false,
+  continuity = {},
+  signals = {},
+} = {}) {
+  return Boolean(
+    routeLines.length ||
+    hasDynamicHostState ||
+    shouldForceSnapshot ||
+    hasRealContinuity(continuity) ||
+    signals.capabilityQuery ||
+    signals.capabilityProbeShape ||
+    signals.currentInfo ||
+    signals.claudeGuide
+  );
+}
+
 export function buildRouteStateContext(prompt, sessionContext = {}) {
   const signals = analyzeIntentProfile(prompt, sessionContext);
   const continuity = workflowContinuitySnapshot(sessionContext);
   const workflowOwner = selectWorkflowOwner(signals, sessionContext);
   const responseContract = buildRouteResponseContract(signals, sessionContext, continuity);
-  const rendererContract = buildRendererContract(responseContract, {
-    outputStyle: sessionContext?.outputStyle,
-    attachedOutputStyle: sessionContext?.attachedOutputStyle,
-  });
-  const executionPlaybook = buildRouteExecutionPlaybook(signals, sessionContext, continuity);
   const recoveryPlaybook = buildRouteRecoveryPlaybook(sessionContext, continuity, signals);
   const decisionTieBreakers = buildRouteDecisionTieBreakers(signals, sessionContext, continuity);
-  const specializationCandidates = buildRouteSpecializationCandidates(signals, sessionContext, continuity);
   const hostState = buildPromptHostState(sessionContext);
   const hasDynamicHostState = hasDynamicPromptHostState(sessionContext);
   const hostOwnedRouting = workflowOwner.owner === 'host_skill_workflow';
@@ -63,45 +139,39 @@ export function buildRouteStateContext(prompt, sessionContext = {}) {
     : buildRouteDecisionLines(signals, sessionContext, {
       continuity,
       responseContract,
-      rendererContract,
-      executionPlaybook,
       recoveryPlaybook,
       decisionTieBreakers,
-      specializationCandidates,
     });
   const shouldForceSnapshot = Boolean(signals.artifactShapeGuided);
 
-  if (!routeLines.length && !hasDynamicHostState && !shouldForceSnapshot) {
+  if (!shouldEmitRouteContext({
+    routeLines,
+    hasDynamicHostState,
+    shouldForceSnapshot,
+    continuity,
+    signals,
+  })) {
     return '';
   }
 
-  const snapshot = compactState({
-    operator_profile: 'opus-compatible-claude-code',
-    decision_model: 'host_defined_capability_policies',
-    intent: summarizeIntentForState(signals),
-    workflow_owner: workflowOwner,
-    policy: buildCapabilityPolicySnapshot(sessionContext, signals, routePolicyOptions),
-    ...(!hostOwnedRouting ? {
-      response_contract: responseContract,
-      renderer_contract: rendererContract,
-      execution_playbook: executionPlaybook,
-      recovery_playbook: recoveryPlaybook,
-      decision_tie_breakers: decisionTieBreakers,
-      specialization_candidates: specializationCandidates,
-    } : {}),
-    ...hostState,
+  const snapshot = buildCompactRouteSnapshot({
+    signals,
+    sessionContext,
+    workflowOwner,
+    routePolicyOptions,
+    responseContract,
+    recoveryPlaybook,
+    decisionTieBreakers,
+    hostState,
   });
 
   return [
-    '# hello2cc routing',
+    '# 2cc routing',
     '',
     hostOwnedRouting
-      ? '按下面的 JSON snapshot 执行；宿主已暴露更高优先级 workflow owner，本轮只保留 hello2cc 的风格壳层、工具语义和协议收口。'
-      : '按下面的 JSON snapshot 执行；把它当成宿主给出的 intent、capability policy、rendering contract 和 guard-rail state。',
-    hostOwnedRouting
-      ? '不要自造并行私有 workflow，也不要用 hello2cc 的执行剧本覆盖宿主已 surfaced 的 skill/workflow。'
-      : '用正文只补执行顺序和 tie-breaker；不要自造并行私有 workflow。',
-    '更高优先级的用户指令、原生工具契约、显式工具输入和宿主真实权限结果始终覆盖这里。',
+      ? '宿主已暴露更高优先级 workflow owner。2cc 只补当前回合的轻量边界，不覆盖宿主 workflow。'
+      : '2cc 只补当前回合的轻量边界。不要把这里的内部字段、JSON key、路由名或 guard 名写进可见回答。',
+    '用户当前问题、Claude Code 宿主指令、显式工具输入和真实权限结果始终优先。',
     '',
     '## Decision backbone',
     ...decisionLines.map((line, index) => `${index + 1}. ${line}`),

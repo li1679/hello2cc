@@ -144,11 +144,7 @@ test('successful proxy WebSearch clears degraded session memory', () => {
   }, env);
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
-  assert.equal(state.response_contract.specialization, 'current_info');
-  assert.ok(
-    state.specialization_candidates.items.some(
-      (item) => item.id === 'current_info' && item.reasons.includes('websearch:proxy-conditional'),
-    ),
-  );
-  assert.ok(!state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'websearch_retry_cooldown'));
+  assert.equal(state.route.specialization, 'current_info');
+  assert.ok(state.policy.policies.some((policy) => policy.id === 'websearch' && policy.current_info_request));
+  assert.ok(!state.route.guards.includes('websearch_retry_cooldown'));
 });

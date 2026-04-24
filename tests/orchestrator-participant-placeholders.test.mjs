@@ -78,9 +78,9 @@ test('route ignores placeholder transcript agent_name when deriving team role', 
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
   assert.equal(state.host.continuity.team.active_team, 'delivery-squad');
-  assert.equal(state.response_contract.specialization, 'team_status');
-  assert.equal(state.response_contract.role, 'team_lead');
-  assert.equal(state.execution_playbook.role, 'team_lead');
+  assert.equal(state.route.specialization, 'team_status');
+  assert.equal(Object.hasOwn(state, 'response_contract'), false);
+  assert.equal(Object.hasOwn(state, 'execution_playbook'), false);
 });
 
 test('pre-task-update strips placeholder owner values instead of treating them as unknown teammates', () => {

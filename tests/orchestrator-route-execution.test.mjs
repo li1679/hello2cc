@@ -70,7 +70,6 @@ test('route emits dynamic host state when transcript surfaces skills workflows o
   }, env);
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
-  assert.equal(state.decision_model, 'host_defined_capability_policies');
   assert.equal(state.host.active_team, 'delivery-squad');
   assert.deepEqual(state.host.surfaced_skills, ['release']);
   assert.deepEqual(state.host.loaded_commands, ['release']);
@@ -129,12 +128,8 @@ test('route only emits a prompt-state snapshot when it changes', () => {
     prompt: '再看一下今天 AI 新闻',
   }, env);
   const thirdState = parseAdditionalContextJson(third.hookSpecificOutput.additionalContext);
-  assert.equal(thirdState.response_contract.specialization, 'current_info');
-  assert.ok(
-    thirdState.specialization_candidates.items.some(
-      (item) => item.id === 'current_info' && item.reasons.includes('websearch:proxy-conditional'),
-    ),
-  );
+  assert.equal(thirdState.route.specialization, 'current_info');
+  assert.ok(thirdState.policy.policies.some((policy) => policy.id === 'websearch' && policy.current_info_request));
 });
 
 test('route skips explicit slash commands', () => {
@@ -218,35 +213,14 @@ test('route prefers markdown tables for comparison prompts', () => {
   assert.equal(state.intent.actions.compare, true);
   assert.equal(state.intent.output.table, true);
   assert.equal(state.intent.output.structured, true);
-  assert.equal(state.response_contract.specialization, 'compare');
-  assert.equal(state.response_contract.selection_basis, 'weak_request_shape');
-  assert.equal(state.response_contract.selection_strength, 'weak');
-  assert.equal(state.response_contract.selection_mode, 'semantic_choice_within_candidates');
-  assert.equal(state.response_contract.specialization_is_hint, true);
-  assert.equal(state.response_contract.preferred_shape, 'one_sentence_judgment_then_markdown_table_then_recommendation');
-  assert.deepEqual(state.response_contract.required_sections, ['judgment', 'compact_table', 'recommendation']);
-  assert.equal(state.renderer_contract.style_name, '2cc:2cc Native');
-  assert.equal(state.renderer_contract.style_source, 'plugin_default');
-  assert.equal(state.renderer_contract.opening, 'judgment_first');
-  assert.deepEqual(state.renderer_contract.section_order, ['judgment', 'compact_table', 'recommendation']);
-  assert.equal(state.renderer_contract.table_mode, 'compact_markdown');
-  assert.deepEqual(state.renderer_contract.table_columns, ['option', 'fit', 'tradeoffs', 'recommended_when']);
-  assert.equal(state.renderer_contract.prefer_markdown, true);
-  assert.ok(state.renderer_contract.avoid.includes('recommendation_before_judgment'));
-  assert.equal(state.execution_playbook.role, 'direct_decider');
-  assert.deepEqual(state.execution_playbook.ordered_steps, [
-    'state_judgment_first',
-    'compare_options_in_compact_table',
-    'give_recommendation_and_boundary',
-  ]);
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'decision_answer_first'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'judgment_and_table_before_long_prose'));
+  assert.equal(state.route.specialization, 'compare');
+  assert.equal(state.route.selection_basis, 'weak_request_shape');
+  assert.equal(state.route.selection_strength, 'weak');
+  assert.equal(state.policy.requested_output_shape, 'one_sentence_judgment_then_markdown_table_then_recommendation');
+  assert.ok(state.route.guards.includes('decision_answer_first'));
+  assert.ok(state.route.tie_breakers.includes('judgment_and_table_before_long_prose'));
   assert.equal(state.intent.output.diagram, undefined);
   assert.equal(state.intent.actions.plan, undefined);
-  assert.equal(state.policy.requested_output_shape, 'one_sentence_judgment_then_markdown_table_then_recommendation');
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'planning' && item.recommended_shape === 'ordered_plan_with_validation_and_open_questions'));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'research' && item.recommended_shape === 'direct_findings_with_paths_and_unknowns'));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'compare' && item.selection_strength === 'weak'));
 });
 
 test('route derives non-lexicon targeted artifact questions into explanation guidance', () => {
@@ -260,10 +234,10 @@ test('route derives non-lexicon targeted artifact questions into explanation gui
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.artifact_shape_guided, true);
   assert.equal(state.intent.analysis.prompt_shape.targeted_artifact_question, true);
-  assert.equal(state.response_contract.specialization, 'explanation');
-  assert.equal(state.response_contract.selection_basis, 'artifact_question_shape');
-  assert.equal(state.response_contract.selection_strength, 'medium');
-  assert.equal(state.response_contract.preferred_shape, 'direct_explanation_then_key_points_and_references');
+  assert.equal(state.route.specialization, 'explanation');
+  assert.equal(state.route.selection_basis, 'artifact_question_shape');
+  assert.equal(state.route.selection_strength, 'medium');
+  assert.equal(state.policy.requested_output_shape, 'direct_explanation_then_key_points_and_references');
 });
 
 test('route derives non-lexicon bounded implementation from artifact shape', () => {
@@ -285,7 +259,7 @@ test('route derives non-lexicon bounded implementation from artifact shape', () 
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.artifact_shape_guided, true);
   assert.equal(state.intent.actions.implement, true);
-  assert.equal(state.response_contract.preferred_shape, 'brief_status_then_changes_validation_and_risks');
+  assert.equal(state.policy.requested_output_shape, 'brief_status_then_changes_validation_and_risks');
   assert.match(context, /边界清晰的实施切片|优先直接执行/i);
   assert.match(context, /不要仅因为多文件|Plan` agent 就进入 `EnterPlanMode`/);
 });
@@ -306,7 +280,6 @@ test('route treats repo-heavy forward-slash Windows paths as complex implementat
   assert.equal(state.intent.actions.implement, true);
   assert.equal(state.intent.routing.bounded_implementation, true);
   assert.equal(state.intent.routing.complex, true);
-  assert.equal(state.execution_playbook.role, 'direct_executor');
   assert.ok(state.policy.policies.some((policy) => policy.id === 'task-tracking'));
   assert.match(context, /先用宿主 task tracking 立住真实状态/);
   assert.match(context, /TaskCreate \/ TaskList \/ TaskUpdate/);
@@ -392,9 +365,9 @@ test('route keeps protocol explanation prompts out of capability and team-status
     assert.equal(state.intent.collaboration?.task_board, undefined);
     assert.equal(state.intent.collaboration?.team_semantics, undefined);
     assert.equal(state.intent.collaboration?.team_status, undefined);
-    assert.equal(state.response_contract.specialization, 'explanation');
-    assert.equal(state.response_contract.preferred_shape, 'direct_explanation_then_key_points_and_references');
-    assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'direct_answer_before_background'));
+    assert.equal(state.route.specialization, 'explanation');
+    assert.equal(state.policy.requested_output_shape, 'direct_explanation_then_key_points_and_references');
+    assert.ok(state.route.tie_breakers.includes('direct_answer_before_background'));
 
     if (testCase.session_id === 'route-explain-skills-protocol') {
       assert.equal(state.intent.analysis.prompt_shape?.known_surface_mention, undefined);
@@ -423,8 +396,8 @@ test('route keeps Claude Code guide difference questions on explanation instead 
   assert.equal(state.intent.actions.explain, true);
   assert.equal(state.intent.routing?.claude_guide, true);
   assert.equal(state.intent.routing?.capability_query, undefined);
-  assert.equal(state.response_contract.specialization, 'explanation');
-  assert.equal(state.response_contract.preferred_shape, 'direct_explanation_then_key_points_and_references');
+  assert.equal(state.route.specialization, 'explanation');
+  assert.equal(state.policy.requested_output_shape, 'direct_explanation_then_key_points_and_references');
   assert.equal(state.policy.requested_output_shape, 'direct_explanation_then_key_points_and_references');
   assert.ok(state.policy.policies.some((item) => item.id === 'claude-code-guide'));
   assert.ok(!state.policy.policies.some((item) => item.id === 'skills-workflows'));
@@ -442,8 +415,8 @@ test('route keeps repo config explanations out of Claude Code guide routing', ()
 
   assert.equal(state.intent.actions.explain, true);
   assert.equal(state.intent.routing?.claude_guide, undefined);
-  assert.equal(state.response_contract.specialization, 'explanation');
-  assert.equal(state.response_contract.preferred_shape, 'direct_explanation_then_key_points_and_references');
+  assert.equal(state.route.specialization, 'explanation');
+  assert.equal(state.policy.requested_output_shape, 'direct_explanation_then_key_points_and_references');
   assert.ok(!state.policy?.policies?.some((item) => item.id === 'claude-code-guide'));
 });
 
@@ -480,7 +453,7 @@ test('route keeps active-team guide explanations out of team-status while preser
 
   assert.equal(guideState.intent.collaboration?.team_status, undefined);
   assert.equal(guideState.intent.routing?.claude_guide, true);
-  assert.equal(guideState.response_contract.specialization, 'explanation');
+  assert.equal(guideState.route.specialization, 'explanation');
   assert.ok(guideState.policy.policies.some((item) => item.id === 'claude-code-guide'));
 
   const teamStateOutput = run('route', {
@@ -492,15 +465,9 @@ test('route keeps active-team guide explanations out of team-status while preser
   const teamState = parseAdditionalContextJson(teamStateOutput.hookSpecificOutput.additionalContext);
 
   assert.equal(teamState.intent.collaboration.team_status, true);
-  assert.equal(teamState.response_contract.specialization, 'team_status');
-  assert.equal(teamState.response_contract.selection_basis, 'team_continuity');
-  assert.equal(teamState.response_contract.selection_strength, 'strong');
-  assert.deepEqual(teamState.execution_playbook.ordered_steps, [
-    'inspect_host_team_continuity',
-    'refresh_open_tasks_before_status',
-    'state_next_action_first',
-    'close_finished_tasks_or_summarize',
-  ]);
+  assert.equal(teamState.route.specialization, 'team_status');
+  assert.equal(teamState.route.selection_basis, 'team_continuity');
+  assert.equal(teamState.route.selection_strength, 'strong');
 });
 
 test('route keeps active-team continuity from hijacking non-team-owned specialization roles and playbooks', () => {
@@ -649,18 +616,13 @@ test('route keeps active-team continuity from hijacking non-team-owned specializ
       tools: ['ClaudeCodeGuide', 'WebSearch', 'ToolSearch', 'DiscoverSkills', 'ListMcpResources', 'ReadMcpResource', 'Skill', 'TaskList', 'TaskGet', 'TaskUpdate', 'SendMessage', 'AskUserQuestion', 'ExitPlanMode'],
       prompt: testCase.prompt,
     }, env);
-    const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
+    const context = output.hookSpecificOutput.additionalContext;
+    const state = parseAdditionalContextJson(context);
 
-    assert.equal(state.response_contract.specialization, testCase.specialization);
-    assert.equal(state.response_contract.role, testCase.role);
-    assert.equal(state.execution_playbook.specialization, testCase.specialization);
-    assert.equal(state.execution_playbook.role, testCase.role);
-    assert.deepEqual(state.execution_playbook.ordered_steps, testCase.orderedSteps);
-    assert.ok(!state.execution_playbook.ordered_steps.includes('inspect_task_board_continuity'));
-    assert.ok(!state.execution_playbook.ordered_steps.includes('advance_or_reassign_tasks'));
-    assert.ok(!state.execution_playbook.ordered_steps.includes('use_SendMessage_for_real_team_coordination'));
+    assert.equal(state.route.specialization, testCase.specialization);
+    assert.doesNotMatch(context, /inspect_task_board_continuity|advance_or_reassign_tasks|use_SendMessage_for_real_team_coordination/);
     if (testCase.tieBreakerId) {
-      assert.ok(state.decision_tie_breakers.items.some((item) => item.id === testCase.tieBreakerId));
+      assert.ok(state.route.tie_breakers.includes(testCase.tieBreakerId));
     }
   }
 });
@@ -682,11 +644,11 @@ test('route derives non-lexicon broad artifact questions into research guidance'
   assert.equal(state.intent.analysis.artifact_shape_guided, true);
   assert.equal(state.intent.analysis.prompt_shape.broad_artifact_question, true);
   assert.equal(state.intent.analysis.prompt_shape.path_artifact_count, 3);
-  assert.equal(state.response_contract.specialization, 'research');
-  assert.equal(state.response_contract.selection_basis, 'artifact_probe_shape');
-  assert.equal(state.response_contract.selection_strength, 'medium');
-  assert.equal(state.response_contract.preferred_shape, 'direct_findings_with_paths_and_unknowns');
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'targeted_paths_before_conclusion'));
+  assert.equal(state.route.specialization, 'research');
+  assert.equal(state.route.selection_basis, 'artifact_probe_shape');
+  assert.equal(state.route.selection_strength, 'medium');
+  assert.equal(state.policy.requested_output_shape, 'direct_findings_with_paths_and_unknowns');
+  assert.ok(state.route.tie_breakers.includes('targeted_paths_before_conclusion'));
 });
 
 test('route derives non-lexicon diff questions into review guidance', () => {
@@ -709,10 +671,10 @@ test('route derives non-lexicon diff questions into review guidance', () => {
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.artifact_shape_guided, true);
   assert.equal(state.intent.analysis.prompt_shape.review_artifact, true);
-  assert.equal(state.response_contract.specialization, 'review');
-  assert.equal(state.response_contract.selection_basis, 'review_artifact_shape');
-  assert.equal(state.response_contract.selection_strength, 'medium');
-  assert.equal(state.response_contract.preferred_shape, 'findings_first_then_open_questions_then_change_summary');
+  assert.equal(state.route.specialization, 'review');
+  assert.equal(state.route.selection_basis, 'review_artifact_shape');
+  assert.equal(state.route.selection_strength, 'medium');
+  assert.equal(state.policy.requested_output_shape, 'findings_first_then_open_questions_then_change_summary');
 });
 
 test('route derives non-lexicon structured planning questions into planning guidance', () => {
@@ -732,12 +694,12 @@ test('route derives non-lexicon structured planning questions into planning guid
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.planning_probe_shape, true);
   assert.equal(state.intent.actions.plan, true);
-  assert.equal(state.response_contract.specialization, 'planning');
-  assert.equal(state.response_contract.selection_basis, 'planning_probe_shape');
-  assert.equal(state.response_contract.selection_strength, 'medium');
-  assert.equal(state.response_contract.preferred_shape, 'ordered_plan_with_validation_and_open_questions');
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'plan_mode_protocol'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'constraints_before_plan_shape'));
+  assert.equal(state.route.specialization, 'planning');
+  assert.equal(state.route.selection_basis, 'planning_probe_shape');
+  assert.equal(state.route.selection_strength, 'medium');
+  assert.equal(state.policy.requested_output_shape, 'ordered_plan_with_validation_and_open_questions');
+  assert.ok(state.route.guards.includes('plan_mode_protocol'));
+  assert.ok(state.route.tie_breakers.includes('constraints_before_plan_shape'));
   assert.match(context, /planning` specialization 只要求这轮先给计划与顺序|不等于必须进入 session 级 plan mode/);
 });
 

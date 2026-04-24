@@ -1,11 +1,4 @@
-import { buildRouteDecisionTieBreakers } from './decision-tie-breakers.mjs';
-import { buildRendererContract } from './renderer-contracts.mjs';
-import {
-  buildRouteExecutionPlaybook,
-  buildRouteRecoveryPlaybook,
-  buildRouteResponseContract,
-} from './route-state-playbooks.mjs';
-import { buildRouteSpecializationCandidates } from './specialization-candidates.mjs';
+import { buildRouteResponseContract } from './route-state-playbooks.mjs';
 import { workflowContinuitySnapshot } from './tool-policy-state.mjs';
 
 export function buildRouteDecisionLines(signals = {}, sessionContext = {}, guidance = {}) {
@@ -48,18 +41,11 @@ export function buildRouteDecisionLines(signals = {}, sessionContext = {}, guida
   const planApprovalActionItems = actionItems.filter((item) => item?.action_type === 'review_plan_approval');
   const shutdownRejectionActionItems = actionItems.filter((item) => item?.action_type === 'resolve_shutdown_rejection');
   const responseContract = guidance.responseContract || buildRouteResponseContract(signals, sessionContext, continuity);
-  const rendererContract = guidance.rendererContract || buildRendererContract(responseContract, {
-    outputStyle: sessionContext?.outputStyle,
-    attachedOutputStyle: sessionContext?.attachedOutputStyle,
-  });
-  const executionPlaybook = guidance.executionPlaybook || buildRouteExecutionPlaybook(signals, sessionContext, continuity);
-  const recoveryPlaybook = guidance.recoveryPlaybook || buildRouteRecoveryPlaybook(sessionContext, continuity, signals);
-  const decisionTieBreakers = guidance.decisionTieBreakers || buildRouteDecisionTieBreakers(signals, sessionContext, continuity);
-  const specializationCandidates = guidance.specializationCandidates || buildRouteSpecializationCandidates(signals, sessionContext, continuity);
   const specialization = responseContract?.specialization;
   const lines = [
     '可见文本默认跟随用户当前语言；不要输出“我打算 / 我应该 / let’s”这类内部思考式元叙述。',
     '先遵守宿主能力优先级，再在被允许的能力面内选工具；不要把未 surfaced 的工具、workflow、agent、MCP 能力或权限当成已确认存在。',
+    '内部 route key、候选名、执行剧本和章节名只用于本轮决策，不要外显成正文格式。',
   ];
 
   if (Array.isArray(sessionContext?.toolNames) && sessionContext.toolNames.length > 0) {
@@ -72,7 +58,7 @@ export function buildRouteDecisionLines(signals = {}, sessionContext = {}, guida
 
   if (!signals?.lexiconGuided) {
     lines.push('当前不要依赖词表；优先依据 prompt 结构、已 surfaced 的 capability 名称、tool schema 和 continuity 来判断，不要把“无关键词”误读成“无意图”。');
-    lines.push('不要要求用户原话与 capability / workflow 名称同语种或同词面；只在宿主已公开的 specialization 候选和 host path 里做语义匹配与收口。');
+    lines.push('不要要求用户原话与 capability / workflow 名称同语种或同词面；只在宿主已公开的可见路由边界和 host path 里做语义匹配与收口。');
   }
 
   if (signals?.capabilityProbeShape) {
@@ -83,52 +69,13 @@ export function buildRouteDecisionLines(signals = {}, sessionContext = {}, guida
     lines.push(`当前 transcript 已附带这些 MCP server instructions：${transcriptMcpInstructions.map((entry) => `\`${entry.name}\``).join(', ')}；涉及对应外部系统时，先沿这些 server instruction block 选 tool / resource，不要自己猜协议。`);
   }
 
-  if (responseContract?.preferred_shape) {
-    const columns = Array.isArray(responseContract.preferred_table_columns) && responseContract.preferred_table_columns.length > 0
-      ? `；表格优先列：${responseContract.preferred_table_columns.join(' | ')}`
-      : '';
-    lines.push(`当前输出契约优先：\`${responseContract.preferred_shape}\`${columns}；先给结论或状态，再展开必要细节。`);
-  }
-
-  if (rendererContract?.opening) {
-    const sectionOrder = Array.isArray(rendererContract.section_order) && rendererContract.section_order.length > 0
-      ? `；章节顺序：${rendererContract.section_order.map((section) => `\`${section}\``).join(' -> ')}`
-      : '';
-    const tableMode = rendererContract.table_mode === 'compact_markdown'
-      ? `；表格模式：紧凑 Markdown${Array.isArray(rendererContract.table_columns) && rendererContract.table_columns.length > 0 ? `（${rendererContract.table_columns.join(' | ')}）` : ''}`
-      : rendererContract.prefer_markdown
-        ? '；需要结构化表达时优先 Markdown'
-        : '';
-    lines.push(`当前渲染契约：风格 \`${rendererContract.style_name}\`；先按 \`${rendererContract.opening}\` 开场${sectionOrder}${tableMode}。`);
-  }
-
-  if (Array.isArray(executionPlaybook?.ordered_steps) && executionPlaybook.ordered_steps.length > 0) {
-    lines.push(`当前执行剧本优先：${executionPlaybook.ordered_steps.map((step) => `\`${step}\``).join(' -> ')}；不要跳过前面的 continuity / protocol 收口步骤。`);
-  }
-
-  if (Array.isArray(recoveryPlaybook?.recipes) && recoveryPlaybook.recipes.length > 0) {
-    lines.push(`遇到宿主 fail-closed 或 continuity guard 时，按 \`recovery_playbook\` 恢复；当前重点 guard：${recoveryPlaybook.recipes.map((recipe) => `\`${recipe.guard}\``).join(', ')}。`);
-  }
-
-  if (Array.isArray(decisionTieBreakers?.items) && decisionTieBreakers.items.length > 0) {
-    lines.push(`当前 tie-breaker 顺序：${decisionTieBreakers.items.map((item) => `\`${item.id}\``).join(' -> ')}；多个“都能做”的路径并存时按这个顺序打破平局。`);
-  }
-
-  if (Array.isArray(specializationCandidates?.items) && specializationCandidates.items.length > 0) {
-    lines.push(`specialization 候选只在这些可见边界里选：${specializationCandidates.items.map((item) => `\`${item.id}\`${item.selected ? ' (active)' : ''}`).join(', ')}；不要自造新的隐藏路由。`);
-  }
 
   if (specialization && responseContract?.selection_strength === 'strong') {
     lines.push(`当前 active specialization \`${specialization}\`（\`${responseContract.selection_basis || 'host_continuity'}\`）优先；沿这个 continuity / protocol path 收口，不要只因为正文措辞变化就改道。`);
   } else if (specialization && responseContract?.selection_strength === 'medium') {
     lines.push(`当前 active specialization \`${specialization}\`（\`${responseContract.selection_basis || 'visible_surface'}\`）优先；沿这个可见 path 推进，除非更高优先级规则要求切换。`);
-  } else if (Array.isArray(specializationCandidates?.items) && specializationCandidates.items.length > 0) {
-    const candidateIds = specializationCandidates.items.map((item) => `\`${item.id}\``).join(', ');
-    lines.push(`当前没有被宿主强 continuity 锁死的单一路由；直接依据用户原话语义，在这些候选里选最贴近的一项：${candidateIds}。`);
-    lines.push('一旦在候选集内完成语义选择，就沿该 candidate 的 `use_when` / `avoid_when` / `recommended_shape` 收口；不要再从关键词、措辞或你自己刚生成的正文里反推这次选择。');
-    if (specialization && responseContract?.selection_strength === 'weak') {
-      lines.push(`当前 active specialization \`${specialization}\`（\`${responseContract.selection_basis || 'weak_request_shape'}\`）只是弱提示；可以被同一候选集内更贴近用户真实语义的路线替代。`);
-    }
+  } else if (specialization && responseContract?.selection_strength === 'weak') {
+    lines.push(`当前 active specialization \`${specialization}\`（\`${responseContract.selection_basis || 'weak_request_shape'}\`）只是弱提示；可以被用户当前语义覆盖。`);
   }
 
   if (continuity.active_task_board) {

@@ -43,8 +43,8 @@ test('route defers open workflow routing to surfaced host skills while keeping h
   assert.deepEqual(state.workflow_owner.host_skill_workflows, ['brainstorm', 'release']);
   assert.equal(state.host.loaded_commands, undefined);
   assert.equal(state.host.workflows, undefined);
-  assert.equal(state.response_contract, undefined);
-  assert.equal(state.execution_playbook, undefined);
+  assert.equal(Object.hasOwn(state, 'response_contract'), false);
+  assert.equal(Object.hasOwn(state, 'execution_playbook'), false);
   assert.ok(output.hookSpecificOutput.additionalContext.includes('更高优先级 workflow owner'));
 });
 
@@ -123,18 +123,13 @@ test('route surfaces loaded workflows deferred tools and MCP resources together'
   assert.deepEqual(state.host.deferred_tools.available, ['mcp__github__add_issue_comment']);
   assert.deepEqual(state.host.deferred_tools.loaded, ['mcp__github__add_issue_comment']);
   assert.deepEqual(state.host.mcp_resources, ['github:repo://issues/8']);
-  assert.equal(state.response_contract.specialization, 'release_follow_up');
-  assert.equal(state.response_contract.selection_basis, 'workflow_continuity');
-  assert.equal(state.response_contract.selection_strength, 'strong');
-  assert.equal(state.response_contract.preferred_shape, 'release_follow_up_status_then_checklist_then_open_items');
-  assert.equal(state.execution_playbook.specialization, 'release_follow_up');
-  assert.equal(state.decision_tie_breakers.specialization, 'release_follow_up');
+  assert.equal(state.route.specialization, 'release_follow_up');
+  assert.equal(state.route.selection_basis, 'workflow_continuity');
+  assert.equal(state.route.selection_strength, 'strong');
+  assert.equal(state.policy.requested_output_shape, 'release_follow_up_status_then_checklist_then_open_items');
   assert.ok(
-    state.decision_tie_breakers.items.some((item) => item.id === 'loaded_release_follow_up_before_fresh_release_flow'),
+    state.route.tie_breakers.includes('loaded_release_follow_up_before_fresh_release_flow'),
   );
-  assert.equal(state.specialization_candidates.active, 'release_follow_up');
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'release_follow_up' && item.selected));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'release_follow_up' && item.selection_basis === 'workflow_continuity'));
 });
 
 test('route derives release follow-up from loaded workflow continuity without multilingual keyword tables', () => {
@@ -176,9 +171,9 @@ test('route derives release follow-up from loaded workflow continuity without mu
 
   assert.equal(state.intent.analysis.lexicon_guided, undefined);
   assert.equal(state.intent.analysis.host_boundary_guided, true);
-  assert.equal(state.response_contract.specialization, 'release_follow_up');
-  assert.equal(state.response_contract.selection_basis, 'workflow_continuity');
-  assert.equal(state.response_contract.selection_strength, 'strong');
+  assert.equal(state.route.specialization, 'release_follow_up');
+  assert.equal(state.route.selection_basis, 'workflow_continuity');
+  assert.equal(state.route.selection_strength, 'strong');
 });
 
 test('route keeps active-team release follow-up on the loaded release playbook instead of team coordination defaults', () => {
@@ -220,18 +215,9 @@ test('route keeps active-team release follow-up on the loaded release playbook i
   }, env);
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
-  assert.equal(state.response_contract.specialization, 'release_follow_up');
-  assert.equal(state.response_contract.role, 'general_operator');
-  assert.equal(state.execution_playbook.specialization, 'release_follow_up');
-  assert.equal(state.execution_playbook.role, 'general_operator');
-  assert.deepEqual(state.execution_playbook.ordered_steps, [
-    'resume_loaded_release_surface',
-    'advance_remaining_release_follow_up_items',
-    'report_status_checklist_and_open_items',
-  ]);
-  assert.ok(!state.execution_playbook.ordered_steps.includes('inspect_task_board_continuity'));
-  assert.ok(!state.execution_playbook.ordered_steps.includes('advance_or_reassign_tasks'));
-  assert.ok(!state.execution_playbook.ordered_steps.includes('use_SendMessage_for_real_team_coordination'));
+  assert.equal(state.route.specialization, 'release_follow_up');
+  assert.equal(state.route.selection_basis, 'workflow_continuity');
+  assert.doesNotMatch(output.hookSpecificOutput.additionalContext, /inspect_task_board_continuity|advance_or_reassign_tasks|use_SendMessage_for_real_team_coordination/);
 });
 
 test('route extracts prompt text from structured payloads but only emits state when state exists', () => {

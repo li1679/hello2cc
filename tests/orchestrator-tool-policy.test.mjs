@@ -639,14 +639,11 @@ test('route exposes active and exited plan-mode continuity for Claude Code style
   const planningState = parseAdditionalContextJson(planningOutput.hookSpecificOutput.additionalContext);
 
   assert.equal(planningState.host.continuity.plan_mode_entered, true);
-  assert.equal(planningState.response_contract.specialization, 'planning');
-  assert.equal(planningState.response_contract.preferred_shape, 'ordered_plan_with_validation_and_open_questions');
-  assert.equal(planningState.execution_playbook.role, 'planner');
-  assert.equal(planningState.execution_playbook.specialization, 'planning');
-  assert.deepEqual(planningState.execution_playbook.primary_tools, ['AskUserQuestion', 'ExitPlanMode']);
-  assert.ok(planningState.recovery_playbook.recipes.some((recipe) => recipe.guard === 'plan_mode_protocol'));
-  assert.ok(planningState.decision_tie_breakers.items.some((item) => item.id === 'constraints_before_plan_shape'));
-  assert.ok(planningState.decision_tie_breakers.items.some((item) => item.id === 'blocking_question_before_plan_freeze'));
+  assert.equal(planningState.route.specialization, 'planning');
+  assert.equal(planningState.policy.requested_output_shape, 'ordered_plan_with_validation_and_open_questions');
+  assert.ok(planningState.route.guards.includes('plan_mode_protocol'));
+  assert.ok(planningState.route.tie_breakers.includes('constraints_before_plan_shape'));
+  assert.ok(planningState.route.tie_breakers.includes('blocking_question_before_plan_freeze'));
   assert.match(planningOutput.hookSpecificOutput.additionalContext, /ExitPlanMode/);
   assert.match(planningOutput.hookSpecificOutput.additionalContext, /AskUserQuestion/);
 
@@ -668,7 +665,6 @@ test('route exposes active and exited plan-mode continuity for Claude Code style
   const implementationState = parseAdditionalContextJson(implementationOutput.hookSpecificOutput.additionalContext);
 
   assert.equal(implementationState.host.continuity.plan_mode_exited, true);
-  assert.equal(implementationState.execution_playbook.continuation_rule, 'continue_from_last_approved_plan');
   assert.match(implementationOutput.hookSpecificOutput.additionalContext, /已退出过 plan mode|已批准计划|继续实施/);
 });
 
@@ -703,9 +699,8 @@ test('route treats non-lexicon approved-plan follow-up as direct execution conti
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
   assert.equal(state.intent.actions.implement, true);
-  assert.equal(state.response_contract.role, 'direct_executor');
-  assert.equal(state.execution_playbook.role, 'direct_executor');
-  assert.equal(state.execution_playbook.continuation_rule, 'continue_from_last_approved_plan');
+  assert.equal(state.host.continuity.plan_mode_exited, true);
+  assert.match(output.hookSpecificOutput.additionalContext, /已批准计划|继续实施/);
 });
 
 test('route exposes idle teammates so task assignment stays on the task board path', () => {
@@ -1137,7 +1132,7 @@ test('route exposes blocker continuity for leader and teammate paths', () => {
   }, env);
   const leaderState = parseAdditionalContextJson(leaderOutput.hookSpecificOutput.additionalContext);
   const [leaderHandoffCandidate] = leaderState.host.continuity.team.handoff_candidates;
-  assert.equal(leaderState.response_contract.specialization, 'handoff');
+  assert.equal(leaderState.route.specialization, 'handoff');
   assert.deepEqual(leaderState.host.continuity.team.blocked_task_ids, ['7']);
   assert.deepEqual(leaderState.host.continuity.team.blocking_task_ids, ['3']);
   assert.deepEqual(leaderState.host.continuity.team.handoff_candidate_task_ids, ['7']);
@@ -1161,14 +1156,7 @@ test('route exposes blocker continuity for leader and teammate paths', () => {
     includes_blocker_handoffs: true,
     summary_lines: ['#7 Implement API is blocked by backend-owner'],
   });
-  assert.ok(leaderState.recovery_playbook.recipes.some((recipe) => recipe.guard === 'handoff_candidate_continuity'));
-  assert.ok(leaderState.decision_tie_breakers.items.some((item) => item.id === 'existing_handoff_candidate_before_new_branch'));
-  assert.deepEqual(leaderState.execution_playbook.ordered_steps, [
-    'inspect_handoff_candidates',
-    'refresh_task_state',
-    'close_or_reassign_via_TaskUpdate',
-    'summarize_next_owner_or_blocker',
-  ]);
+  assert.ok(leaderState.route.guards.includes('handoff_candidate_continuity'));
   assert.match(leaderOutput.hookSpecificOutput.additionalContext, /handoff \/ reassignment|blocked by backend-owner|follow-up 候选/i);
   assert.match(leaderOutput.hookSpecificOutput.additionalContext, /存在 blocker|TaskUpdate\(addBlockedBy\/addBlocks\)/);
 
@@ -1187,13 +1175,7 @@ test('route exposes blocker continuity for leader and teammate paths', () => {
       blocked_by: ['3'],
     },
   ]);
-  assert.deepEqual(teammateState.execution_playbook.ordered_steps, [
-    'read_current_task_state',
-    'resolve_blocker_or_prepare_handoff',
-    'record_handoff_via_TaskUpdate',
-    'send_follow_up_if_needed',
-  ]);
-  assert.ok(teammateState.execution_playbook.avoid_shortcuts.includes('idle_or_summary_before_task_board_closure'));
+  assert.equal(teammateState.route.specialization, 'handoff');
   assert.match(teammateOutput.hookSpecificOutput.additionalContext, /被 blocker 卡住|handoff/);
 });
 
@@ -1247,20 +1229,9 @@ test('route keeps blocked verification on verification-blocker playbook instead 
   }, env);
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
-  assert.equal(state.response_contract.specialization, 'blocked_verification');
-  assert.equal(state.response_contract.role, 'direct_executor');
-  assert.equal(state.execution_playbook.specialization, 'blocked_verification');
-  assert.equal(state.execution_playbook.role, 'direct_executor');
-  assert.deepEqual(state.execution_playbook.ordered_steps, [
-    'inspect_current_blocker',
-    'state_validation_evidence_or_not_run_boundary',
-    'name_the_unblock_path',
-  ]);
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'blocker_or_not_run_before_verified_claim'));
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'verification_blocker_continuity'));
-  assert.ok(!state.execution_playbook.ordered_steps.includes('inspect_task_board_continuity'));
-  assert.ok(!state.execution_playbook.ordered_steps.includes('advance_or_reassign_tasks'));
-  assert.ok(!state.execution_playbook.ordered_steps.includes('use_SendMessage_for_real_team_coordination'));
+  assert.equal(state.route.specialization, 'blocked_verification');
+  assert.ok(state.route.guards.includes('verification_blocker_continuity'));
+  assert.doesNotMatch(output.hookSpecificOutput.additionalContext, /inspect_task_board_continuity|advance_or_reassign_tasks|use_SendMessage_for_real_team_coordination/);
 });
 
 test('route exposes teammate_terminated mailbox continuity after shutdown approval and clears it after reassignment', () => {
@@ -1544,17 +1515,11 @@ test('route exposes pending teammate plan approvals for the team lead', () => {
     summary_lines: ['[Plan Approval Request from frontend-owner] review and answer with structured plan_approval_response'],
   });
   assert.equal(state.host.continuity.team.idle_teammates, undefined);
-  assert.equal(state.response_contract.specialization, 'team_approval');
-  assert.equal(state.response_contract.selection_basis, 'team_protocol_continuity');
-  assert.equal(state.response_contract.selection_strength, 'strong');
-  assert.equal(state.response_contract.preferred_shape, 'approval_status_then_compact_table_then_response_action');
-  assert.equal(state.execution_playbook.specialization, 'team_approval');
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'team_approval_protocol'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'pending_plan_approval_before_general_status'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'structured_plan_response_before_prose'));
-  assert.equal(state.specialization_candidates.active, 'team_approval');
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'team_approval' && item.selected));
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'team_approval' && item.selection_strength === 'strong'));
+  assert.equal(state.route.specialization, 'team_approval');
+  assert.equal(state.route.selection_basis, 'team_protocol_continuity');
+  assert.equal(state.route.selection_strength, 'strong');
+  assert.equal(state.policy.requested_output_shape, 'approval_status_then_compact_table_then_response_action');
+  assert.ok(state.route.guards.includes('team_approval_protocol'));
   assert.match(output.hookSpecificOutput.additionalContext, /action items|plan_approval_response/i);
   assert.match(output.hookSpecificOutput.additionalContext, /plan_approval_response|待处理的计划审批/);
 });
@@ -1610,10 +1575,10 @@ test('route prioritizes pending plan approval from continuity even for non-lexic
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
 
   assert.equal(state.intent?.analysis?.lexicon_guided, undefined);
-  assert.equal(state.response_contract.specialization, 'team_approval');
-  assert.equal(state.response_contract.selection_basis, 'team_protocol_continuity');
-  assert.equal(state.response_contract.selection_strength, 'strong');
-  assert.equal(state.specialization_candidates.active, 'team_approval');
+  assert.equal(state.route.specialization, 'team_approval');
+  assert.equal(state.route.selection_basis, 'team_protocol_continuity');
+  assert.equal(state.route.selection_strength, 'strong');
+  assert.equal(state.route.specialization, 'team_approval');
 });
 
 test('route prioritizes multi-action leader coordination with a compact-table hint', () => {
@@ -1792,33 +1757,19 @@ test('route prioritizes multi-action leader coordination with a compact-table hi
       '#7 Implement API is blocked by backend-owner',
     ],
   });
-  assert.equal(state.response_contract.preferred_shape, 'one_line_plus_compact_markdown_table');
-  assert.equal(state.response_contract.specialization, 'team_approval');
-  assert.equal(state.response_contract.selection_basis, 'team_protocol_continuity');
-  assert.equal(state.response_contract.selection_strength, 'strong');
-  assert.deepEqual(state.response_contract.preferred_table_columns, ['priority', 'action', 'task', 'teammate', 'next_tool']);
-  assert.equal(state.renderer_contract.opening, 'judgment_first');
-  assert.deepEqual(state.renderer_contract.section_order, ['one_line_judgment', 'compact_table', 'next_step']);
-  assert.equal(state.renderer_contract.table_mode, 'compact_markdown');
-  assert.deepEqual(state.renderer_contract.table_columns, ['priority', 'action', 'task', 'teammate', 'next_tool']);
-  assert.ok(state.renderer_contract.avoid.includes('ascii_tables_when_markdown_works'));
-  assert.equal(state.execution_playbook.role, 'team_lead');
-  assert.equal(state.execution_playbook.specialization, 'team_approval');
-  assert.deepEqual(state.execution_playbook.primary_tools, ['SendMessage.plan_approval_response', 'TaskGet', 'SendMessage']);
-  assert.equal(state.recovery_playbook.fail_closed, true);
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'team_approval_protocol'));
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'pending_plan_approval_protocol'));
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'shutdown_rejection_follow_up'));
-  assert.ok(state.recovery_playbook.recipes.some((recipe) => recipe.guard === 'task_handoff_or_blocker_continuity'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'pending_plan_approval_before_general_status'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'structured_plan_response_before_prose'));
-  assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'higher_priority_action_before_follow_up'));
-  assert.equal(state.specialization_candidates.active, 'team_approval');
-  assert.ok(state.specialization_candidates.items.some((item) => item.id === 'team_approval' && item.selection_basis === 'team_protocol_continuity'));
+  assert.equal(state.policy.requested_output_shape, 'one_line_plus_compact_markdown_table');
+  assert.equal(state.route.specialization, 'team_approval');
+  assert.equal(state.route.selection_basis, 'team_protocol_continuity');
+  assert.equal(state.route.selection_strength, 'strong');
+  assert.deepEqual(state.host.continuity.team.team_action_summary.preferred_table_columns, ['priority', 'action', 'task', 'teammate', 'next_tool']);
+  assert.ok(state.route.guards.includes('team_approval_protocol'));
+  assert.ok(state.route.guards.includes('pending_plan_approval_protocol'));
+  assert.ok(state.route.guards.includes('shutdown_rejection_follow_up'));
+  assert.ok(state.route.guards.includes('task_handoff_or_blocker_continuity'));
   assert.match(output.hookSpecificOutput.additionalContext, /priority \| action \| task \| teammate \| next tool/);
   assert.match(output.hookSpecificOutput.additionalContext, /shutdown rejection|Still finishing verification/i);
   assert.match(output.hookSpecificOutput.additionalContext, /action items|更高优先级 action/i);
-  assert.match(output.hookSpecificOutput.additionalContext, /recovery_playbook|pending_plan_approval_protocol|shutdown_rejection_follow_up/);
+  assert.match(output.hookSpecificOutput.additionalContext, /pending_plan_approval_protocol|shutdown_rejection_follow_up/);
 });
 
 test('leader plan approval response clears pending approval continuity', () => {
