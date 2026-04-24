@@ -129,6 +129,57 @@ test('route derives language-agnostic capability probes from question shape', ()
   assert.match(context, /宿主可用能力、workflow、tool、MCP、agent 或权限边界/);
 });
 
+test('route suppresses generic everyday questions even when discovery tools are visible', () => {
+  const env = isolatedEnv();
+  const output = run('route', {
+    session_id: 'route-generic-everyday-question',
+    tools: ['ToolSearch', 'DiscoverSkills', 'ListMcpResources', 'ReadMcpResource'],
+    prompt: '今天适合出去玩吗？',
+  }, env);
+
+  assert.deepEqual(output, { suppressOutput: true });
+});
+
+test('route does not leak checklist scaffolding after topic switch', () => {
+  const env = isolatedEnv();
+  const sessionId = 'route-topic-switch-no-checklist-sticky';
+
+  run('route', {
+    session_id: sessionId,
+    tools: ['TaskCreate', 'TaskUpdate', 'Agent', 'ToolSearch'],
+    prompt: '请先列出处理清单，然后优化这个项目。',
+  }, env);
+
+  const output = run('route', {
+    session_id: sessionId,
+    tools: ['TaskCreate', 'TaskUpdate', 'Agent', 'ToolSearch'],
+    prompt: '顺便问一下，今天适合出去玩吗？',
+  }, env);
+
+  assert.deepEqual(output, { suppressOutput: true });
+});
+
+test('route keeps real capability questions compact and hides internal playbooks', () => {
+  const env = isolatedEnv();
+  const output = run('route', {
+    session_id: 'route-real-capability-compact',
+    tools: ['ToolSearch', 'DiscoverSkills', 'ListMcpResources', 'ReadMcpResource'],
+    prompt: 'Claude Code 现在有哪些可用工具、skills 和 MCP？',
+  }, env);
+  const context = output.hookSpecificOutput.additionalContext;
+  const state = parseAdditionalContextJson(context);
+
+  assert.match(context, /^# 2cc routing/);
+  assert.equal(state.intent.analysis.capability_probe_shape, true);
+  assert.equal(state.route.specialization, 'capability');
+  assert.deepEqual(state.host.tools, ['ToolSearch', 'DiscoverSkills', 'ListMcpResources', 'ReadMcpResource']);
+  assert.ok(!Object.hasOwn(state, 'response_contract'));
+  assert.ok(!Object.hasOwn(state, 'renderer_contract'));
+  assert.ok(!Object.hasOwn(state, 'execution_playbook'));
+  assert.ok(!Object.hasOwn(state, 'specialization_candidates'));
+  assert.doesNotMatch(context, /ordered_steps|section_order|execution_playbook|specialization_candidates/);
+});
+
 test('route keeps lexicon-only current-info requests on visible WebSearch surface instead of a strong boundary', () => {
   const env = isolatedEnv();
   const sessionId = 'route-current-info-visible-surface';
