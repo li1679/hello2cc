@@ -88,21 +88,21 @@ export function buildModeGuidance(mode) {
   const sharedRules = buildSharedRules();
   const byMode = {
     explore: [
-      '# hello2cc Explore mode',
+      '# 2cc Explore mode',
       '',
       ...sharedRules,
       '- Read-only: start with native search and targeted reads; use `ToolSearch` only for capability uncertainty.',
       '- Return exact paths, symbols, and unknowns; use compact Markdown tables when they help.',
     ],
     plan: [
-      '# hello2cc Plan mode',
+      '# 2cc Plan mode',
       '',
       ...sharedRules,
       '- Read-only planning: produce an ordered plan with validation, rollback risks, and ownership splits.',
       '- Distinguish main-thread work, parallel native `Agent` work, and real team workflow.',
     ],
     general: [
-      '# hello2cc General-Purpose mode',
+      '# 2cc General-Purpose mode',
       '',
       ...sharedRules,
       '- Can write: prefer surgical edits and the narrowest relevant validation.',
@@ -133,7 +133,7 @@ export function buildTeammateOverlay(state) {
   const canWrite = state.can_write === true;
 
   const lines = [
-    '## hello2cc teammate overlay',
+    '## 2cc teammate overlay',
     '- Team protocol: coordinate via `SendMessage`; task flow stays on `TaskList` -> `TaskGet` -> `TaskUpdate`; plain text does not close tasks.',
     canWrite
       ? '- Writable teammate: once clear, read code, edit files, and validate.'
@@ -161,7 +161,7 @@ export function renderSubagentContext({ modeLines, teammateOverlay, state }) {
     ...modeLines,
     ...(teammateOverlay ? ['', teammateOverlay] : []),
     '',
-    '# hello2cc subagent_state',
+    '# 2cc subagent_state',
     '',
     'Treat the JSON below as the authoritative execution/rendering envelope.',
     '',

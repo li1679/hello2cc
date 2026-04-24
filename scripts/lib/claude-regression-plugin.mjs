@@ -24,11 +24,11 @@ function extractPluginBlock(text, pluginName) {
 }
 
 /**
- * Validates the cached hello2cc plugin install shape exposed by a real Claude session.
+ * Validates the cached 2cc plugin install shape exposed by a real Claude session.
  */
 export function assertPluginCacheShape(pluginPath, name) {
   if (!pluginPath) {
-    fail(`real-session case "${name}" did not expose hello2cc plugin path`);
+    fail(`real-session case "${name}" did not expose 2cc plugin path`);
   }
 
   const manifestPath = join(pluginPath, '.claude-plugin', 'plugin.json');
@@ -47,17 +47,17 @@ export function assertPluginCacheShape(pluginPath, name) {
 
   const settingsPath = join(pluginPath, 'settings.json');
   if (existsSync(settingsPath)) {
-    fail(`real-session case "${name}" cached plugin should not ship settings.json or inject a default hello2cc main agent`);
+    fail(`real-session case "${name}" cached plugin should not ship settings.json or inject a default 2cc main agent`);
   }
 
   const agentPath = join(pluginPath, 'agents', 'native.md');
   if (!existsSync(agentPath)) {
-    fail(`real-session case "${name}" missing hello2cc native main agent`);
+    fail(`real-session case "${name}" missing 2cc native main agent`);
   }
 
-  const outputStylePath = join(pluginPath, 'output-styles', 'hello2cc-native.md');
+  const outputStylePath = join(pluginPath, 'output-styles', '2cc-native.md');
   if (!existsSync(outputStylePath)) {
-    fail(`real-session case "${name}" missing hello2cc native output style`);
+    fail(`real-session case "${name}" missing 2cc native output style`);
   }
 
   const outputStyleText = readFileSync(outputStylePath, 'utf8');
@@ -67,7 +67,7 @@ export function assertPluginCacheShape(pluginPath, name) {
 }
 
 /**
- * Ensures hello2cc is installed and temporarily enabled, returning a restore callback.
+ * Ensures 2cc is installed and temporarily enabled, returning a restore callback.
  */
 export function ensureHello2ccEnabled() {
   const cliPluginCommand = ensureClaudeCli();
@@ -76,9 +76,9 @@ export function ensureHello2ccEnabled() {
     fail('unable to inspect installed Claude Code plugins');
   }
 
-  const pluginBlock = extractPluginBlock(result.stdout || '', 'hello2cc@hello2cc-local');
+  const pluginBlock = extractPluginBlock(result.stdout || '', '2cc@2cc-local');
   if (!pluginBlock) {
-    fail('hello2cc@hello2cc-local is not installed in the current Claude Code environment');
+    fail('2cc@2cc-local is not installed in the current Claude Code environment');
   }
 
   const scopeMatch = pluginBlock.match(/Scope:\s*(user|project|local)/i);
@@ -86,9 +86,9 @@ export function ensureHello2ccEnabled() {
   const scopedArgs = scope ? ['--scope', scope] : [];
   const wasDisabled = /Status:\s*✘\s*disabled/i.test(pluginBlock);
   if (wasDisabled) {
-    const enableResult = spawnClaude([cliPluginCommand, 'enable', ...scopedArgs, 'hello2cc@hello2cc-local']);
+    const enableResult = spawnClaude([cliPluginCommand, 'enable', ...scopedArgs, '2cc@2cc-local']);
     if (enableResult.error || enableResult.status !== 0) {
-      fail('hello2cc is installed but disabled, and automatic enable failed');
+      fail('2cc is installed but disabled, and automatic enable failed');
     }
   }
 
@@ -98,16 +98,16 @@ export function ensureHello2ccEnabled() {
         return;
       }
 
-      const disableResult = spawnClaude([cliPluginCommand, 'disable', ...scopedArgs, 'hello2cc@hello2cc-local']);
+      const disableResult = spawnClaude([cliPluginCommand, 'disable', ...scopedArgs, '2cc@2cc-local']);
       if (disableResult.error || disableResult.status !== 0) {
-        fail('hello2cc was initially disabled, but restoring the disabled state failed after real-session regression');
+        fail('2cc was initially disabled, but restoring the disabled state failed after real-session regression');
       }
     },
   };
 }
 
 function createIsolatedClaudeEnv() {
-  const root = mkdtempSync(join(tmpdir(), 'hello2cc-real-install-'));
+  const root = mkdtempSync(join(tmpdir(), '2cc-real-install-'));
   return {
     HOME: root,
     USERPROFILE: root,
@@ -117,12 +117,12 @@ function createIsolatedClaudeEnv() {
 }
 
 /**
- * Verifies a clean Claude environment can add, install, and load hello2cc successfully.
+ * Verifies a clean Claude environment can add, install, and load 2cc successfully.
  */
 export function runIsolatedInstallSmoke() {
   const cliPluginCommand = ensureClaudeCli();
   const env = createIsolatedClaudeEnv();
-  const pluginId = 'hello2cc@hello2cc-local';
+  const pluginId = '2cc@2cc-local';
 
   const addResult = spawnClaude([cliPluginCommand, 'marketplace', 'add', process.cwd()], env);
   if (addResult.error || addResult.status !== 0) {
@@ -142,7 +142,7 @@ export function runIsolatedInstallSmoke() {
   const plugins = JSON.parse(listResult.stdout || '[]');
   const plugin = Array.isArray(plugins) ? plugins.find((entry) => entry.id === pluginId) : null;
   if (!plugin) {
-    fail('isolated install smoke did not surface hello2cc in plugin list output');
+    fail('isolated install smoke did not surface 2cc in plugin list output');
   }
 
   if (Array.isArray(plugin.errors) && plugin.errors.length > 0) {

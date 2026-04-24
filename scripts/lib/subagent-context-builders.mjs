@@ -139,8 +139,8 @@ function modeState(mode, identity, payload = {}, teamState = {}) {
   );
 
   return {
-    hello2cc_role: 'host-state',
-    operator_profile: 'opus-compatible-claude-code',
+    '2cc_role': 'host-state',
+    operator_profile: '2cc-local-claude-code-adapter',
     execution_envelope: 'host_defined_capability_policies',
     semantic_routing: 'host_guarded_model_decides',
     tool_choice: 'follow_visible_capability_contracts',

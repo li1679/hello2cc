@@ -50,8 +50,8 @@ test('subagent-context exposes plain worker capability as structured state', () 
   const state = parseAdditionalContextJson(output.hookSpecificOutput.additionalContext);
   const context = output.hookSpecificOutput.additionalContext;
 
-  assert.equal(state.hello2cc_role, 'host-state');
-  assert.equal(state.operator_profile, 'opus-compatible-claude-code');
+  assert.equal(state['2cc_role'], 'host-state');
+  assert.equal(state.operator_profile, '2cc-local-claude-code-adapter');
   assert.equal(state.execution_envelope, 'host_defined_capability_policies');
   assert.equal(state.semantic_routing, 'host_guarded_model_decides');
   assert.equal(state.mode, 'General-Purpose');

@@ -23,20 +23,20 @@ export function buildSessionStartContext(sessionContext = {}) {
   });
 
   return [
-    '# hello2cc',
+    '# 2cc',
     '',
     '先按 Claude Code 风格的三层约束执行：只在宿主公开的能力边界与优先级内做语义匹配和最终工具选择，并接受宿主的权限与 fail-closed 收口。',
     '',
     '## 优先级',
-    '- 用户当前消息、Claude Code 宿主规则、`CLAUDE.md` / `AGENTS.md` / 项目规则，始终高于 hello2cc。',
+    '- 用户当前消息、Claude Code 宿主规则、`CLAUDE.md` / `AGENTS.md` / 项目规则，始终高于 2cc。',
     '- 不要替换 Claude Code 原生工作流；只在宿主真实暴露的能力面上做选择。',
-    '- 显式工具输入、原生工具 schema、权限模式和宿主返回的真实状态，始终高于 hello2cc 的补充策略。',
+    '- 显式工具输入、原生工具 schema、权限模式和宿主返回的真实状态，始终高于 2cc 的补充策略。',
     '- 当宿主只给出弱提示时，不要求用户原话与工具名或 workflow 名同语言、同关键词；直接基于用户原话语义，在宿主公开的 candidate/path 边界内选择最贴近的 Claude Code 原生路径。',
     '- 当强 continuity 没有锁定单一路由时，只允许在宿主公开的 specialization 候选里做语义选择；不要自由发明隐藏路径，也不要再从正文里反推自己的选择结果。',
     '- 对 `EnterPlanMode` 采用保守边界：只有真实架构歧义、需求需要先澄清、高影响重构，或用户明确要求先出方案时才考虑进入 session 级 plan mode。',
     '- `Plan` / `Explore` agent 是只读 helper；它们用于搜集信息或产出方案，不等于进入 session 级 `EnterPlanMode`，也不会自动要求走 plan-mode approval flow。',
     '- 路径清晰的实现、沿现有模式落地的功能、边界明确的多文件修改、以及 clear bug fix 默认直接执行；只在有真实阻塞时用 `AskUserQuestion` 提具体问题，不要先开 plan mode。',
-    '- hello2cc 常驻层始终保留输出风格、原生工具语义、协议适配与 fail-closed 收口；若宿主已 surfaced 更高优先级 skill/workflow owner，主流程编排让位给宿主。',
+    '- 2cc 常驻层始终保留输出风格、原生工具语义、协议适配与 fail-closed 收口；若宿主已 surfaced 更高优先级 skill/workflow owner，主流程编排让位给宿主。',
     '',
     ...buildSessionCapabilityPolicyLines(sessionContext, {
       includeIds: PERSISTENT_SESSION_POLICY_IDS,

@@ -9,15 +9,15 @@ export { compactState } from './host-state-shared.mjs';
 
 export function buildSessionStartHostState(sessionContext = {}) {
   return compactState({
-    hello2cc_role: ['native-operator-shell', 'host-state', 'protocol-adapter', 'failure-debounce'],
-    operator_profile: 'opus-compatible-claude-code',
+    '2cc_role': ['native-operator-shell', 'host-state', 'protocol-adapter', 'failure-debounce'],
+    operator_profile: '2cc-local-claude-code-adapter',
     precedence: [
       'user_message',
       'claude_code_host',
       'CLAUDE.md',
       'AGENTS.md',
       'project_rules',
-      'hello2cc',
+      '2cc',
     ],
     policy_summary: {
       specificity_ladder: [

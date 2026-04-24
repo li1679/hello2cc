@@ -83,13 +83,13 @@ test('stale compatibility_mode settings no longer suppress overlays or subagent 
     session_id: 'sanitize-only-mode',
     model: 'opus',
   }, env);
-  assert.ok(sessionOutput.hookSpecificOutput.additionalContext.includes('# hello2cc'));
+  assert.ok(sessionOutput.hookSpecificOutput.additionalContext.includes('# 2cc'));
 
   const routeOutput = run('route', {
     session_id: 'sanitize-only-mode',
     prompt: 'Compare TeamCreate with plain Agent workers and present it as a table.',
   }, env);
-  assert.ok(routeOutput.hookSpecificOutput.additionalContext.includes('# hello2cc routing'));
+  assert.ok(routeOutput.hookSpecificOutput.additionalContext.includes('# 2cc routing'));
 
   const pretoolOutput = run('pre-agent-model', {
     session_id: 'sanitize-only-mode',
@@ -112,5 +112,5 @@ test('stale compatibility_mode settings no longer suppress overlays or subagent 
   });
 
   assert.equal(subagentOutput.status, 0, subagentOutput.stderr);
-  assert.ok(JSON.parse(subagentOutput.stdout).hookSpecificOutput.additionalContext.includes('# hello2cc Explore mode'));
+  assert.ok(JSON.parse(subagentOutput.stdout).hookSpecificOutput.additionalContext.includes('# 2cc Explore mode'));
 });

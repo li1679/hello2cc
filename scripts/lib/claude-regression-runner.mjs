@@ -10,14 +10,14 @@ import {
 import { fail, ok, parseHookContext, parseJsonLines } from './claude-regression-shared.mjs';
 
 function getHello2ccPluginPath(initLine) {
-  const plugin = Array.isArray(initLine.plugins) && initLine.plugins.find((entry) => entry.name === 'hello2cc');
+  const plugin = Array.isArray(initLine.plugins) && initLine.plugins.find((entry) => entry.name === '2cc');
   return plugin?.path || '';
 }
 
 function buildClaudeArgs(name, prompt) {
   const debugDir = join(homedir(), '.claude', 'debug');
   mkdirSync(debugDir, { recursive: true });
-  const debugPath = join(debugDir, `hello2cc-real-${name}.jsonl`);
+  const debugPath = join(debugDir, `2cc-real-${name}.jsonl`);
 
   const explicitModel = String(process.env.HELLO2CC_REAL_MODEL || '').trim();
   const args = [
@@ -75,16 +75,16 @@ function assertInitSurface(name, initLine) {
     fail(`real-session case "${name}" did not emit init event`);
   }
 
-  const pluginLoaded = Array.isArray(initLine.plugins) && initLine.plugins.some((plugin) => plugin.name === 'hello2cc');
+  const pluginLoaded = Array.isArray(initLine.plugins) && initLine.plugins.some((plugin) => plugin.name === '2cc');
   if (!pluginLoaded) {
-    fail(`real-session case "${name}" did not load hello2cc`);
+    fail(`real-session case "${name}" did not load 2cc`);
   }
 
   assertRequiredTools(name, initLine);
   assertRequiredAgents(name, initLine);
 
-  if (!Array.isArray(initLine.agents) || !initLine.agents.includes('hello2cc:native')) {
-    fail(`real-session case "${name}" missing listed hello2cc native agent`);
+  if (!Array.isArray(initLine.agents) || !initLine.agents.includes('2cc:native')) {
+    fail(`real-session case "${name}" missing listed 2cc native agent`);
   }
 
   assertPluginCacheShape(getHello2ccPluginPath(initLine), name);
@@ -105,7 +105,7 @@ function assertSessionExpectations(name, lines, sessionExpectations) {
 }
 
 /**
- * Runs one real Claude CLI session and asserts hello2cc surfaces the expected host-state contract.
+ * Runs one real Claude CLI session and asserts 2cc surfaces the expected host-state contract.
  */
 export function runCase(name, prompt, sessionExpectations) {
   const { args, debugPath } = buildClaudeArgs(name, prompt);
@@ -136,12 +136,12 @@ export function runRealRegression() {
 
   try {
     runCase('baseline', 'Reply with exactly OK.', [
-      'opus-compatible-claude-code',
+      '2cc-local-claude-code-adapter',
       '"semantic_routing": "host_guarded_model_decides"',
       'ToolSearch',
     ]);
     runCase('repeat', 'Reply with exactly STILL_OK.', [
-      'opus-compatible-claude-code',
+      '2cc-local-claude-code-adapter',
       '"semantic_routing": "host_guarded_model_decides"',
       'ToolSearch',
     ]);

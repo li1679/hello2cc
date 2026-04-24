@@ -78,7 +78,7 @@ export function selectWorkflowOwner(requestProfile = {}, sessionContext = {}) {
 
   if (!hostSkillWorkflows.length) {
     return {
-      owner: 'hello2cc',
+      owner: '2cc',
       mode: 'native_routing',
       reason: 'no_visible_host_skill_workflow',
       host_skill_workflows: [],
@@ -87,7 +87,7 @@ export function selectWorkflowOwner(requestProfile = {}, sessionContext = {}) {
 
   if (requestPrefersHello2ccNativeRouting(requestProfile)) {
     return {
-      owner: 'hello2cc',
+      owner: '2cc',
       mode: 'native_routing',
       reason: 'request_prefers_native_capability_or_output_specialization',
       host_skill_workflows: hostSkillWorkflows,
@@ -104,7 +104,7 @@ export function selectWorkflowOwner(requestProfile = {}, sessionContext = {}) {
       host_skill_workflows: hostSkillWorkflows,
       invoke_tool: sessionContext?.skillToolAvailable ? 'Skill' : undefined,
       discovery_tool: sessionContext?.discoverSkillsAvailable ? 'DiscoverSkills' : undefined,
-      hello2cc_role: [
+      '2cc_role': [
         'output_style_shell',
         'tool_semantics',
         'protocol_adapter',
@@ -126,7 +126,7 @@ export function selectWorkflowOwner(requestProfile = {}, sessionContext = {}) {
       host_skill_workflows: hostSkillWorkflows,
       invoke_tool: sessionContext?.skillToolAvailable ? 'Skill' : undefined,
       discovery_tool: sessionContext?.discoverSkillsAvailable ? 'DiscoverSkills' : undefined,
-      hello2cc_role: [
+      '2cc_role': [
         'output_style_shell',
         'tool_semantics',
         'protocol_adapter',
@@ -141,7 +141,7 @@ export function selectWorkflowOwner(requestProfile = {}, sessionContext = {}) {
   }
 
   return {
-    owner: 'hello2cc',
+    owner: '2cc',
     mode: 'native_routing',
     reason: 'visible_host_skill_surface_but_no_open_workflow_request',
     host_skill_workflows: hostSkillWorkflows,

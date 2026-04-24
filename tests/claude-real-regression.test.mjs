@@ -29,7 +29,7 @@ function createPluginCache(root) {
   mkdirSync(join(pluginPath, 'output-styles'), { recursive: true });
 
   writeFileSync(join(pluginPath, '.claude-plugin', 'plugin.json'), JSON.stringify({
-    name: 'hello2cc',
+    name: '2cc',
     version: '0.2.3',
   }), 'utf8');
   writeFileSync(join(pluginPath, 'agents', 'native.md'), '# 2cc native\n', 'utf8');
@@ -41,16 +41,16 @@ function createSuccessfulStream(pluginPath) {
   const initLine = {
     type: 'system',
     subtype: 'init',
-    plugins: [{ name: 'hello2cc', path: pluginPath }],
+    plugins: [{ name: '2cc', path: pluginPath }],
     tools: ['ToolSearch', 'Task', 'TaskOutput', 'TaskStop'],
-    agents: ['Explore', 'Plan', 'General-Purpose', 'hello2cc:native'],
+    agents: ['Explore', 'Plan', 'General-Purpose', '2cc:native'],
   };
   const hookLine = {
     type: 'system',
     subtype: 'hook_response',
     output: JSON.stringify({
       hookSpecificOutput: {
-        additionalContext: '# hello2cc\n\n## 宿主状态快照\n```json\n{\n  "operator_profile": "opus-compatible-claude-code",\n  "protocol_adapters": {\n    "semantic_routing": "host_guarded_model_decides"\n  },\n  "host": {\n    "tools": [\n      "ToolSearch"\n    ]\n  }\n}\n```',
+        additionalContext: '# 2cc\n\n## 宿主状态快照\n```json\n{\n  "operator_profile": "2cc-local-claude-code-adapter",\n  "protocol_adapters": {\n    "semantic_routing": "host_guarded_model_decides"\n  },\n  "host": {\n    "tools": [\n      "ToolSearch"\n    ]\n  }\n}\n```',
       },
     }),
   };
@@ -131,10 +131,10 @@ function createFakeClaudeEnv(options = {}) {
   const pluginPath = createPluginCache(root);
   const behavior = {
     helpCommands: options.helpCommands || ['plugins'],
-    listOutput: options.listOutput || `Installed plugins:\n\n  hello2cc@hello2cc-local\n    Scope: user\n    Status: ✔ enabled\n`,
+    listOutput: options.listOutput || `Installed plugins:\n\n  2cc@2cc-local\n    Scope: user\n    Status: ✔ enabled\n`,
     listJsonOutput: options.listJsonOutput || JSON.stringify([
       {
-        id: 'hello2cc@hello2cc-local',
+        id: '2cc@2cc-local',
         enabled: true,
         installPath: pluginPath,
       },
@@ -196,7 +196,7 @@ test('real regression fails fast when Claude CLI is unavailable', () => {
 test('real regression accepts singular plugin command and restores disabled plugin state', () => {
   const { env, logPath } = createFakeClaudeEnv({
     helpCommands: ['plugin'],
-    listOutput: 'hello2cc@hello2cc-local\n  Scope: user\n  Status: ✘ disabled\n',
+    listOutput: '2cc@2cc-local\n  Scope: user\n  Status: ✘ disabled\n',
   });
 
   const result = runRealRegression(env);
@@ -208,8 +208,8 @@ test('real regression accepts singular plugin command and restores disabled plug
   const logText = readFileSync(logPath, 'utf8');
   assert.match(logText, /^plugin --help/m);
   assert.match(logText, /^plugin list/m);
-  assert.match(logText, /^plugin enable --scope user hello2cc@hello2cc-local/m);
-  assert.match(logText, /^plugin disable --scope user hello2cc@hello2cc-local/m);
+  assert.match(logText, /^plugin enable --scope user 2cc@2cc-local/m);
+  assert.match(logText, /^plugin disable --scope user 2cc@2cc-local/m);
   assert.doesNotMatch(logText, /^plugins list/m);
 });
 
@@ -228,7 +228,7 @@ test('real regression falls back to PATH Claude binary when claude.ps1 is missin
 test('real regression preserves original failure when restore also fails', () => {
   const { env } = createFakeClaudeEnv({
     helpCommands: ['plugins'],
-    listOutput: 'hello2cc@hello2cc-local\n  Scope: user\n  Status: ✘ disabled\n',
+    listOutput: '2cc@2cc-local\n  Scope: user\n  Status: ✘ disabled\n',
     enableExitCode: 0,
     disableExitCode: 9,
     printExitCode: 42,
