@@ -76,10 +76,11 @@ export function validatePluginManifest(context) {
 
   const marketplaceEntry = marketplace?.plugins?.find?.((entry) => entry?.name === plugin.name);
   if (!marketplaceEntry) {
-    context.fail('marketplace.json should expose the hello2cc plugin entry');
+    context.fail('marketplace.json should expose the plugin entry matching plugin.json name');
   } else if (pkg && marketplaceEntry.version !== pkg.version) {
     context.fail('marketplace.json plugin version should match package.json');
   } else {
     context.ok('marketplace version sync');
   }
 }
+

@@ -163,7 +163,7 @@ test('pre-agent-model can discover the current session model from transcript_pat
   const sessionId = 'transcript-model';
   const transcriptPath = writeTranscript(env.HOME, sessionId, {
     model: 'opus',
-    output_style: 'hello2cc:hello2cc Native',
+    output_style: '2cc:2cc Native',
   });
 
   const output = run('pre-agent-model', {
@@ -177,3 +177,4 @@ test('pre-agent-model can discover the current session model from transcript_pat
 
   assert.equal(output.hookSpecificOutput.updatedInput.model, 'opus');
 });
+

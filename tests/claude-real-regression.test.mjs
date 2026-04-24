@@ -32,8 +32,8 @@ function createPluginCache(root) {
     name: 'hello2cc',
     version: '0.2.3',
   }), 'utf8');
-  writeFileSync(join(pluginPath, 'agents', 'native.md'), '# hello2cc native\n', 'utf8');
-  writeFileSync(join(pluginPath, 'output-styles', 'hello2cc-native.md'), '---\nforce-for-plugin: true\n---\n', 'utf8');
+  writeFileSync(join(pluginPath, 'agents', 'native.md'), '# 2cc native\n', 'utf8');
+  writeFileSync(join(pluginPath, 'output-styles', '2cc-native.md'), '---\nforce-for-plugin: true\n---\n', 'utf8');
   return pluginPath;
 }
 
@@ -242,3 +242,5 @@ test('real regression preserves original failure when restore also fails', () =>
   assert.match(result.stderr, /ORIGINAL_STDERR/);
   assert.match(result.stderr, /restore also failed/);
 });
+
+

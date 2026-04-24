@@ -225,7 +225,7 @@ test('route prefers markdown tables for comparison prompts', () => {
   assert.equal(state.response_contract.specialization_is_hint, true);
   assert.equal(state.response_contract.preferred_shape, 'one_sentence_judgment_then_markdown_table_then_recommendation');
   assert.deepEqual(state.response_contract.required_sections, ['judgment', 'compact_table', 'recommendation']);
-  assert.equal(state.renderer_contract.style_name, 'hello2cc:hello2cc Native');
+  assert.equal(state.renderer_contract.style_name, '2cc:2cc Native');
   assert.equal(state.renderer_contract.style_source, 'plugin_default');
   assert.equal(state.renderer_contract.opening, 'judgment_first');
   assert.deepEqual(state.renderer_contract.section_order, ['judgment', 'compact_table', 'recommendation']);
@@ -740,3 +740,4 @@ test('route derives non-lexicon structured planning questions into planning guid
   assert.ok(state.decision_tie_breakers.items.some((item) => item.id === 'constraints_before_plan_shape'));
   assert.match(context, /planning` specialization 只要求这轮先给计划与顺序|不等于必须进入 session 级 plan mode/);
 });
+

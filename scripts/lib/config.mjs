@@ -1,4 +1,4 @@
-export const FORCED_OUTPUT_STYLE_NAME = 'hello2cc:hello2cc Native';
+export const FORCED_OUTPUT_STYLE_NAME = '2cc:2cc Native';
 
 export function envValue(name) {
   return String(process.env[name] || '').trim();
@@ -73,3 +73,4 @@ export function configuredModels(sessionContext = {}) {
     explicitTeamModel: Boolean(teamModelOption),
   };
 }
+

@@ -1,21 +1,18 @@
 {
-  "name": "hello2cc",
-  "version": "0.5.9",
-  "description": "Claude Code alignment plugin that drives third-party models toward Opus-compatible workflows, tool usage, and output style.",
+  "name": "2cc",
+  "version": "0.1.0",
+  "description": "Personal local Claude Code alignment plugin for CCSwitch-backed third-party models.",
   "author": {
-    "name": "hello2cc"
+    "name": "2cc local"
   },
   "license": "Apache-2.0",
   "keywords": [
     "claude-code",
     "plugin",
-    "orchestration",
-    "toolsearch",
-    "subagent",
-    "agent-team",
-    "ascii-diagram",
-    "gpt",
-    "llm"
+    "ccswitch",
+    "third-party-models",
+    "alignment",
+    "local"
   ],
   "outputStyles": "./output-styles",
   "userConfig": {
@@ -34,7 +31,7 @@
     "default_agent_model": {
       "title": "Default Agent Model",
       "type": "string",
-      "description": "原生 Agent 的统一默认模型偏好。推荐填写 inherit / opus / sonnet / haiku；若兼容填写 opus(1M)，hello2cc 会在 Agent.model 边界归一化为宿主安全的 opus。真正的 Opus→opus(1M) 落点应在 CCSwitch 的“Opus 默认模型”中配置。",
+      "description": "原生 Agent 的统一默认模型偏好。推荐填写 inherit / opus / sonnet / haiku；若兼容填写 opus(1M)，2cc 会在 Agent.model 边界归一化为宿主安全的 opus。真正的 Opus→opus(1M) 落点应在 CCSwitch 的“Opus 默认模型”中配置。",
       "sensitive": false
     },
     "primary_model": {

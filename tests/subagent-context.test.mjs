@@ -389,7 +389,7 @@ test('subagent-context derives explain task intent into direct-answer guidance',
   assert.equal(state.response_contract.specialization, 'explanation');
   assert.equal(state.response_contract.preferred_shape, 'direct_explanation_then_key_points_and_references');
   assert.deepEqual(state.response_contract.required_sections, ['direct_answer', 'key_points', 'references']);
-  assert.equal(state.renderer_contract.style_name, 'hello2cc:hello2cc Native');
+  assert.equal(state.renderer_contract.style_name, '2cc:2cc Native');
   assert.equal(state.renderer_contract.opening, 'direct_answer_first');
   assert.deepEqual(state.renderer_contract.section_order, ['direct_answer', 'key_points', 'references']);
   assert.equal(state.renderer_contract.table_mode, 'markdown_when_helpful');
@@ -627,3 +627,4 @@ test('subagent-context derives release task intent into status-first guidance', 
     'release_status_before_notes',
   ]);
 });
+

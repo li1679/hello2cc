@@ -1,19 +1,19 @@
 {
-  "name": "hello2cc-local",
+  "name": "2cc-local",
   "owner": {
-    "name": "hello2cc"
+    "name": "2cc local"
   },
   "metadata": {
-    "description": "Local marketplace for the hello2cc Claude Code plugin"
+    "description": "Local marketplace for the personal 2cc Claude Code plugin"
   },
   "plugins": [
     {
-      "name": "hello2cc",
-      "description": "Thin Claude Code plugin for third-party models, focused on host state, protocol adaptation, and repeated-failure debounce.",
-      "version": "0.5.9",
+      "name": "2cc",
+      "description": "Personal local Claude Code alignment plugin for CCSwitch-backed third-party models.",
+      "version": "0.1.0",
       "source": "./",
       "author": {
-        "name": "hello2cc"
+        "name": "2cc local"
       }
     }
   ]

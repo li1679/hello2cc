@@ -17,17 +17,17 @@ const LIFECYCLE_SCRIPTS = [
 ];
 
 /**
- * Validates that hello2cc ships the native main agent without forcing default selection.
+ * Validates that 2cc ships the native main agent without forcing default selection.
  */
 export function validateAgents(context) {
   if (!context.exists('agents')) {
-    context.fail('agents directory should exist to provide hello2cc native agent guidance');
+    context.fail('agents directory should exist to provide 2cc native agent guidance');
   } else if (!context.exists('agents/native.md')) {
     context.fail('missing agents/native.md');
   } else {
     const text = context.readText('agents/native.md');
     if (!/name:\s*native/m.test(text) || !/model:\s*inherit/m.test(text)) {
-      context.fail('hello2cc main agent should declare name and model: inherit');
+      context.fail('2cc main agent should declare name and model: inherit');
     } else {
       context.ok('native main agent');
     }
@@ -40,11 +40,11 @@ export function validateAgents(context) {
   }
 
   if (context.exists('legacy-agents')) {
-    context.fail('legacy-agents directory should not ship in the native-first public release');
+    context.fail('legacy-agents directory should not ship in the native-first local release');
   }
 
   if (context.exists('settings.json')) {
-    context.fail('settings.json must not ship because hello2cc should not inject a default main-thread agent');
+    context.fail('settings.json must not ship because 2cc should not inject a default main-thread agent');
   } else {
     context.ok('no plugin default agent injection');
   }
@@ -82,25 +82,25 @@ export function validateNoLegacyCompat(context) {
  * Validates the forced native output style metadata and precedence hints.
  */
 export function validateOutputStyles(context) {
-  const relativePath = 'output-styles/hello2cc-native.md';
+  const relativePath = 'output-styles/2cc-native.md';
   if (!context.exists(relativePath)) {
-    context.fail('missing output-styles/hello2cc-native.md');
+    context.fail('missing output-styles/2cc-native.md');
     return;
   }
 
   const text = context.readText(relativePath);
   const frontmatter = parseFrontmatter(text);
   if (!frontmatter) {
-    context.fail('invalid frontmatter in output-styles/hello2cc-native.md');
+    context.fail('invalid frontmatter in output-styles/2cc-native.md');
     return;
   }
 
   if (!/^name:\s*.+$/m.test(frontmatter)) {
-    context.fail('missing name in output-styles/hello2cc-native.md');
+    context.fail('missing name in output-styles/2cc-native.md');
   }
 
   if (!/^description:\s*.+$/m.test(frontmatter)) {
-    context.fail('missing description in output-styles/hello2cc-native.md');
+    context.fail('missing description in output-styles/2cc-native.md');
   }
 
   if (!/^keep-coding-instructions:\s*true$/m.test(frontmatter)) {
@@ -119,6 +119,12 @@ export function validateOutputStyles(context) {
     context.fail('output style should explicitly defer to higher-priority CLAUDE.md / AGENTS.md rules');
   } else {
     context.ok('output style precedence');
+  }
+
+  if (!/ordered_steps|section_order|execution_playbook/.test(text)) {
+    context.fail('output style should explicitly prevent route-internal leakage');
+  } else {
+    context.ok('output style route-internal leakage guard');
   }
 }
 
@@ -141,7 +147,7 @@ export function validateNativeFirstRouting(context) {
 }
 
 /**
- * Validates the lifecycle scripts required by the published plugin are present.
+ * Validates the lifecycle scripts required by the local plugin are present.
  */
 export function validateLifecycleScripts(context) {
   for (const relativePath of LIFECYCLE_SCRIPTS) {
